@@ -413,9 +413,43 @@ Chiusura verificata:
 - workflow Android non modificato e ultimo run su main verde;
 - nessun backup engine, update engine, NAT discovery, relay o multi-server introdotto.
 
-## Fase 16 — Backup configurazione — PROSSIMA, NON AVVIATA
+## Fase 16 — Backup configurazione — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
 
-Backup versionati di device, resource, gruppi, ACL e configurazione Bridge.
+Obiettivo: creare snapshot versionati e ripristinabili della configurazione autoritativa del Bridge, con retention corta e senza esportare private key client.
+
+Scope:
+- directory root-only /etc/ge360-bridge/backups;
+- archivio tar.gz root-only 0600;
+- manifest ge360-bridge-config-backup/v1 con versione, data, file, dimensioni e SHA-256;
+- whitelist esplicita dei file configurazione;
+- backup di devices, resources, services mirror, groups/ACL e bridge.env;
+- backup dell'identità e dei segreti server necessari al disaster recovery;
+- backup della configurazione WireGuard server;
+- esclusione audit.db, metrics.db, pairing temporanei e stato runtime self-healing;
+- scansione devices.json che blocca eventuali private key client;
+- validazione registry e mirror resources/services;
+- verifica anti path-traversal, symlink e file extra;
+- retention predefinita 10 copie con eliminazione automatica del più vecchio;
+- timer giornaliero con massimo un backup scheduled al giorno;
+- backup-create, backup-list, backup-verify e backup-restore;
+- restore in modalità verifica/piano per default e applicazione soltanto con --apply;
+- safety backup pre-restore quando lo stato corrente è valido;
+- restore consentito da archivio verificato anche se lo stato corrente è già corrotto;
+- scrittura atomica file-by-file con temp + fsync + rename;
+- rigenerazione/reload runtime dopo restore tramite CLI;
+- test dedicati a retention, permessi, esclusioni, checksum, traversal, private key client e restore.
+
+Fuori scope Fase 16:
+- download/installazione aggiornamenti;
+- rollback software automatico;
+- backup audit/metriche;
+- backup dati applicativi dei backend;
+- cloud backup;
+- NAT discovery/traversal;
+- relay;
+- multi-server control plane.
+
+Criterio di chiusura: CI Python verde, retention 10 verificata, backup giornaliero verificato, restore da archivio valido verificato, corruzione/traversal/private key client rifiutati, installer/timer aggiornati e nessuna funzione Fase 17 anticipata.
 
 ## Fase 17 — Update Engine
 

@@ -55,6 +55,7 @@ from .audit import list_events
 from .metrics import collect_snapshot, query_series
 from .discovery import discover_backends, import_discovered_backend
 from .self_healing import run_self_heal, self_heal_status
+from .backup import create_backup, list_backups, restore_backup, verify_backup
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -415,6 +416,32 @@ def cmd_self_heal_status(_: argparse.Namespace) -> None:
     print(json.dumps(self_heal_status(), indent=2))
 
 
+def cmd_backup_create(args: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps(create_backup(scheduled=args.scheduled, keep=args.keep), indent=2))
+
+
+def cmd_backup_list(_: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps({"backups": list_backups()}, indent=2))
+
+
+def cmd_backup_verify(args: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps(verify_backup(args.backup), indent=2))
+
+
+def cmd_backup_restore(args: argparse.Namespace) -> None:
+    must_root()
+    report = restore_backup(args.backup, apply=args.apply, keep=args.keep)
+    if args.apply:
+        render_wg_config()
+        reload_runtime()
+        sh(["systemctl", "restart", "ge360-bridge-dashboard.service"], check=False)
+        sh(["systemctl", "restart", "ge360-bridge-enrollment.service"], check=False)
+    print(json.dumps(report, indent=2))
+
+
 def cmd_health_check(args: argparse.Namespace) -> None:
     resources = list_resources()
     if args.resource:
@@ -642,6 +669,24 @@ def parser() -> argparse.ArgumentParser:
 
     sh = sub.add_parser("self-heal-status", help="Mostra configurazione e rate limit del self-healing")
     sh.set_defaults(func=cmd_self_heal_status)
+
+    b = sub.add_parser("backup-create", help="Crea backup configurazione GE360 e applica retention")
+    b.add_argument("--scheduled", action="store_true", help="Modalità timer: massimo un backup giornaliero")
+    b.add_argument("--keep", type=int, default=10, help="Numero backup da conservare (default 10)")
+    b.set_defaults(func=cmd_backup_create)
+
+    b = sub.add_parser("backup-list", help="Elenca e verifica i backup configurazione")
+    b.set_defaults(func=cmd_backup_list)
+
+    b = sub.add_parser("backup-verify", help="Verifica manifest, checksum e contenuto di un backup")
+    b.add_argument("backup")
+    b.set_defaults(func=cmd_backup_verify)
+
+    b = sub.add_parser("backup-restore", help="Verifica o ripristina un backup configurazione")
+    b.add_argument("backup")
+    b.add_argument("--apply", action="store_true", help="Applica realmente il restore; senza flag mostra solo il piano")
+    b.add_argument("--keep", type=int, default=10, help="Retention usata per il safety backup pre-restore")
+    b.set_defaults(func=cmd_backup_restore)
 
     h = sub.add_parser("health-check")
     h.add_argument("resource", nargs="?", help="Nome Resource; senza nome controlla tutte")

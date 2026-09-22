@@ -1,0 +1,12 @@
+[Unit]
+Description=GE360 Bridge daily configuration backup timer
+
+[Timer]
+OnCalendar=*-*-* 03:20:00
+Persistent=true
+RandomizedDelaySec=300
+AccuracySec=60
+Unit=ge360-bridge-backup.service
+
+[Install]
+WantedBy=timers.target

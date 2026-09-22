@@ -1,64 +1,61 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.17 — Fase 15 completata: Self-healing**. La Fase 16 — Backup configurazione è la prossima e non è stata avviata.
+Versione corrente: **v0.18 — Fase 16: Backup configurazione in verifica CI**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## Self-healing controllato
+## Backup configurazione
 
-Il self-healing è disattivato per default e deve essere abilitato per singola Resource.
+GE360 Bridge conserva snapshot root-only della configurazione necessaria al disaster recovery.
 
-Configurazione:
-
-```bash
-sudo ge360-bridge resource-update rilievi \
-  --systemd-unit ge360-rilievi.service \
-  --self-heal true
-```
-
-Controllo senza eseguire restart:
-
-```bash
-sudo ge360-bridge self-heal-run --dry-run
-```
-
-Stato:
-
-```bash
-ge360-bridge self-heal-status
-```
-
-Regole principali:
+Default:
 
 ```text
-trigger: OFFLINE / TIMEOUT
-limite: 3 restart / 10 minuti per Resource
-post-restart: health-check fino a ONLINE
+frequenza: 1 backup al giorno
+retention: 10 copie
+directory: /etc/ge360-bridge/backups
+archivi: 0600
 ```
 
-Il motore usa un lock esclusivo e uno stato persistente per impedire loop anche tra esecuzioni concorrenti.
+Comandi:
+
+```bash
+sudo ge360-bridge backup-create
+sudo ge360-bridge backup-list
+sudo ge360-bridge backup-verify <backup>
+sudo ge360-bridge backup-restore <backup>
+sudo ge360-bridge backup-restore <backup> --apply
+```
+
+Ogni archivio usa manifest + SHA-256 e viene validato prima del restore.
+
+Sono inclusi registry/ACL, configurazione Bridge, identità server, certificati/token server e configurazione WireGuard. Sono esclusi audit, metriche, pairing temporanei e stato runtime self-healing.
+
+Le private key client non vengono esportate. Il Pairing v2 non le conserva sul server e il backup blocca eventuali campi sospetti in `devices.json`.
 
 Timer:
 
 ```text
-ge360-bridge-self-heal.timer
+ge360-bridge-backup.timer
+ogni giorno alle 03:20
 ```
+
+## Self-healing
+
+Il self-healing v0.17 resta opt-in per singola Resource e mantiene il limite massimo 3 restart / 10 minuti.
 
 ## Linux Agent
 
-Il Linux Agent della Fase 14 resta read-only. Il self-healing della Fase 15 opera soltanto sul server Bridge locale e non riavvia host remoti.
-
-## Backend auto discovery
-
-I backend GE360 continuano a dichiararsi tramite `/.well-known/ge360`; il discovery resta confinato al loopback.
+Il Linux Agent resta read-only e separato dal backup locale del Bridge.
 
 ## Limite di rete
 
-Il self-healing non modifica CGNAT, NAT traversal o connettività remota.
+Backup e restore non modificano CGNAT, NAT traversal o connettività remota.
 
 Vedi:
 
 ```text
+docs/BACKUP_CONFIG.md
 docs/SELF_HEALING.md
 docs/LINUX_AGENT.md
 docs/BACKEND_DISCOVERY.md

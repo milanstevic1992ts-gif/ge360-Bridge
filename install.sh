@@ -22,7 +22,7 @@ apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y wireguard-tools nftables qrencode python3 miniupnpc iproute2 curl openssl iputils-ping traceroute
 
 say "Installazione GE360 Bridge"
-install -d -m 700 "$STATE_DIR" "$STATE_DIR/pairings" "$WG_DIR"
+install -d -m 700 "$STATE_DIR" "$STATE_DIR/pairings" "$STATE_DIR/backups" "$WG_DIR"
 install -d -m 755 "$PY_DST"
 rm -rf "$PY_DST/ge360_bridge"
 cp -a "$ROOT_DIR/ge360_bridge" "$PY_DST/"
@@ -115,6 +115,8 @@ install -m 644 "$ROOT_DIR/systemd/ge360-bridge-expiry.service" /etc/systemd/syst
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-expiry.timer" /etc/systemd/system/ge360-bridge-expiry.timer
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-self-heal.service" /etc/systemd/system/ge360-bridge-self-heal.service
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-self-heal.timer" /etc/systemd/system/ge360-bridge-self-heal.timer
+install -m 644 "$ROOT_DIR/systemd/ge360-bridge-backup.service" /etc/systemd/system/ge360-bridge-backup.service
+install -m 644 "$ROOT_DIR/systemd/ge360-bridge-backup.timer" /etc/systemd/system/ge360-bridge-backup.timer
 install -m 755 "$ROOT_DIR/scripts/apply-firewall.sh" /usr/local/sbin/ge360-bridge-firewall
 install -m 755 "$ROOT_DIR/scripts/boot-verify.sh" /usr/local/sbin/ge360-bridge-boot-verify
 
@@ -126,9 +128,11 @@ systemctl enable --now ge360-bridge-dashboard.service
 systemctl enable --now ge360-bridge-enrollment.service
 systemctl enable --now ge360-bridge-expiry.timer
 systemctl enable --now ge360-bridge-self-heal.timer
+systemctl enable --now ge360-bridge-backup.timer
 systemctl enable ge360-bridge-boot-verify.service
 
 ge360-bridge device-sync >/dev/null
+ge360-bridge backup-create --scheduled --keep 10 >/dev/null
 
 say "Rilevamento endpoint"
 CURRENT_ENDPOINT="$(sed -n 's/^PUBLIC_ENDPOINT=//p' "$STATE_DIR/bridge.env" | head -n1)"
@@ -170,7 +174,7 @@ if [[ -n "$WAN4" ]]; then
 fi
 
 say "Installazione completata"
-echo "Versione: GE360 Bridge v0.17 - Fase 15 Self-healing"
+echo "Versione: GE360 Bridge v0.18 - Fase 16 Backup configurazione"
 echo "Dashboard locale: http://127.0.0.1:8789"
 echo "Dashboard via Bridge: http://10.88.0.1:8789"
 echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
@@ -186,4 +190,5 @@ echo "Android SDK + VPN automatica: android-sdk/ge360-bridge-android"
 echo "Backend discovery: ge360-bridge resource-discover"
 echo "Linux Agent per host aggiuntivi: sudo ./install-agent.sh"
 echo "Self-healing: ge360-bridge self-heal-status | sudo ge360-bridge self-heal-run --dry-run"
+echo "Backup: sudo ge360-bridge backup-list | sudo ge360-bridge backup-create"
 echo "I vecchi comandi service-* restano alias compatibili."

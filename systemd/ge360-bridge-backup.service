@@ -1,0 +1,15 @@
+[Unit]
+Description=GE360 Bridge daily configuration backup
+After=local-fs.target
+
+[Service]
+Type=oneshot
+Environment=PYTHONPATH=/opt/ge360-bridge
+ExecStart=/usr/local/sbin/ge360-bridge backup-create --scheduled --keep 10
+User=root
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/etc/ge360-bridge
+ReadOnlyPaths=/etc/wireguard

@@ -24,6 +24,7 @@ from .core import (
     set_group_service, update_device_metadata, utc_now_iso, validate_device_type,
     validate_expiry, validate_name, wg_keypair,
 )
+from .pairing import create_pairing_payload, list_enrollments
 
 PORT = 8789
 STATE_DIR = Path(os.environ.get("GE360_BRIDGE_STATE_DIR", "/etc/ge360-bridge"))
@@ -275,13 +276,14 @@ def dashboard_page(error:str="")->str:
                 access.append(f"{d['name']}={src}")
         sv.append(f"<tr><td><b>{esc(service['name'])}</b><div class='m mono'>{esc(service['bridge_url'])}</div></td><td><span class='dot {'ok' if service['target_reachable'] else ''}'></span>{'OK' if service['target_reachable'] else 'Down'}<div class='m mono'>{esc(service['target'])}</div></td><td>{'<br>'.join(esc(x) for x in access) or '—'}</td></tr>")
     service_checks="".join(f"<label><input type='checkbox' name='service' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in services) or "—"
-    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 2 · Gruppi e ACL semplificate</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
-<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['groups']}</div><div class='m'>gruppi</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>backend attivi</div></div><div class='card'><div class='n'>v0.4</div><div class='m'>ACL gruppi</div></div></div>
+    group_checks="".join(f"<label><input type='checkbox' name='group' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in groups if x.get("enabled",True)) or "—"
+    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 3 · Pairing sicuro v2</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
+<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['groups']}</div><div class='m'>gruppi</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>backend attivi</div></div><div class='card'><div class='n'>v0.5</div><div class='m'>Pairing v2</div></div></div>
 <div class='panel'><h2>Dispositivi</h2><div class='tw'><table><tr><th>Device</th><th>Stato</th><th>Gruppi</th><th>Accesso effettivo</th><th>Handshake</th><th></th></tr>{''.join(dr) or '<tr><td colspan=6>Nessun device</td></tr>'}</table></div></div>
 <div class='panel'><h2>Gruppi</h2><div class='tw'><table><tr><th>Gruppo</th><th>Device</th><th>Servizi</th><th>Stato</th><th></th></tr>{''.join(gr) or '<tr><td colspan=5>Nessun gruppo</td></tr>'}</table></div></div>
 <div class='panel'><h2>Servizi e ACL effettive</h2><div class='tw'><table><tr><th>Servizio</th><th>Backend</th><th>Sorgente accesso</th></tr>{''.join(sv) or '<tr><td colspan=3>Nessun servizio</td></tr>'}</table></div></div>
 <div class='panel forms'><div class='box'><h3>Crea gruppo</h3><form method='post' action='/group/create'><label>Nome</label><input name='name' placeholder='amministratori' required><label>Descrizione</label><textarea name='description'></textarea><p><button class='primary'>Crea gruppo</button></p></form></div>
-<div class='box'><h3>Aggiungi dispositivo</h3><form method='post' action='/device/add'><label>Nome</label><input name='name' required><label>Tipo</label><select name='device_type'><option>android</option><option>tablet</option><option>linux</option><option>windows</option><option>server</option><option selected>unknown</option></select><label>Proprietario</label><input name='owner'><label>Tag</label><input name='tags'><label>Scadenza</label><input type='date' name='expires_at'><label>Accessi diretti iniziali</label><div class='checks'>{service_checks}</div><p><button class='primary'>Genera QR pairing v1</button></p></form></div></div>
+<div class='box'><h3>Pairing sicuro v2</h3><form method='post' action='/device/add'><label>Nome device</label><input name='name' required><label>Tipo</label><select name='device_type'><option>android</option><option>tablet</option><option>linux</option><option>windows</option><option>server</option><option selected>unknown</option></select><label>Proprietario</label><input name='owner'><label>Tag</label><input name='tags'><label>Scadenza device</label><input type='date' name='expires_at'><label>Gruppi iniziali</label><div class='checks'>{group_checks}</div><label>TTL token</label><select name='ttl'><option value='300'>5 minuti</option><option value='600' selected>10 minuti</option><option value='1800'>30 minuti</option><option value='86400'>24 ore</option></select><p><button class='primary'>Genera QR v2 monouso</button></p></form></div></div>
 <div class='panel row'><a class='btn' href='/api/status'>JSON</a><a class='btn' href='/logout'>Esci</a></div></div>"""
     return shell(body,refresh=True)
 
@@ -321,13 +323,18 @@ def group_page(name:str,error:str="")->str:
     return shell(body,g["name"])
 
 
-def pairing_page(name:str,payload:str)->str:
-    svg=qr_svg(payload); qr=f"<div class='qr'>{svg}</div>" if svg else "QR non disponibile"
-    return shell(f"<div class='w'><div class='top'><h1>Pairing {esc(name)}</h1><a class='btn' href='/'>Dashboard</a></div><div class='panel'>{qr}<p class='m'>Pairing v1 invariato. Il v2 appartiene alla Fase 3.</p></div></div>")
+def pairing_page(name:str,payload)->str:
+    raw = json.dumps(payload,separators=(",",":")) if isinstance(payload,dict) else str(payload)
+    svg=qr_svg(raw); qr=f"<div class='qr'>{svg}</div>" if svg else "QR non disponibile"
+    if isinstance(payload,dict):
+        info=f"<p><b>Enrollment:</b> <span class='mono'>{esc(payload.get('enrollment_id',''))}</span></p><p><b>HTTPS:</b> <span class='mono'>{esc(payload.get('enrollment_url',''))}</span></p><p><b>Scadenza token:</b> {esc(payload.get('expires_at',''))}</p><p class='m'>Il QR non contiene alcuna private key. Il client genera localmente la chiave WireGuard e invia solo la public key.</p>"
+    else:
+        info="<p class='m'>Pairing legacy v1 temporaneo.</p>"
+    return shell(f"<div class='w'><div class='top'><h1>Pairing {esc(name)}</h1><a class='btn' href='/'>Dashboard</a></div><div class='panel row' style='align-items:flex-start'>{qr}<div style='flex:1;min-width:280px'>{info}<details><summary>Payload</summary><pre class='mono'>{esc(raw)}</pre></details></div></div></div>")
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version="GE360BridgeDashboard/0.4"
+    server_version="GE360BridgeDashboard/0.5"
     def log_message(self,fmt,*args): print(f"[dashboard] {self.client_address[0]} {fmt % args}")
     def send_body(self,body,status=200,content_type="text/html; charset=utf-8",headers=None):
         data=body.encode() if isinstance(body,str) else body
@@ -388,8 +395,16 @@ class Handler(BaseHTTPRequestHandler):
                 d=find_device(device); self.redirect(f"/device/{d['device_id']}" if d else "/"); return
             if path=="/device/add":
                 name=(f.get("name") or [""])[0].strip()
-                create_device(name,[x for x in f.get("service",[]) if x],device_type=(f.get("device_type") or ["unknown"])[0],owner=(f.get("owner") or [""])[0],expires_at=(f.get("expires_at") or [""])[0] or None,tags=normalize_tags([x for x in (f.get("tags") or [""])[0].split(",") if x.strip()]))
-                self.redirect(f"/pairing/{name}"); return
+                payload=create_pairing_payload(
+                    name=name,
+                    device_type=(f.get("device_type") or ["unknown"])[0],
+                    owner=(f.get("owner") or [""])[0],
+                    expires_at=(f.get("expires_at") or [""])[0] or None,
+                    tags=normalize_tags([x for x in (f.get("tags") or [""])[0].split(",") if x.strip()]),
+                    group_names=[x for x in f.get("group",[]) if x],
+                    ttl_seconds=int((f.get("ttl") or ["600"])[0]),
+                )
+                self.send_body(pairing_page(name,payload)); return
             if path=="/device/update":
                 did=(f.get("device_id") or [""])[0]; current=find_device(did)
                 if not current: raise BridgeError("Dispositivo non trovato.")

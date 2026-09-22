@@ -43,6 +43,7 @@ from .core import (
     validate_expiry,
     wg_keypair,
 )
+from .pairing import create_pairing_payload, list_enrollments
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -175,32 +176,30 @@ def parse_tags_csv(value: str) -> list[str]:
 
 def cmd_device_add(args: argparse.Namespace) -> None:
     must_root()
-    if any(d["name"] == args.name for d in list_devices()):
-        raise BridgeError(f"Dispositivo già presente: {args.name}")
-    private, public, psk = wg_keypair()
-    device = Device(
-        device_id=new_device_id(),
+    payload = create_pairing_payload(
         name=args.name,
-        device_type=validate_device_type(args.type),
-        owner=(args.owner or "").strip()[:120],
-        vpn_ip=next_device_ip(),
-        public_key=public,
-        preshared_key=psk,
-        token=random_token(),
-        created_at=utc_now_iso(),
-        expires_at=validate_expiry(args.expires),
-        notes=(args.notes or "").strip()[:1000],
+        device_type=args.type,
+        owner=args.owner or "",
+        expires_at=args.expires,
+        notes=args.notes or "",
         tags=parse_tags_csv(args.tags),
-        enabled=True,
+        group_names=[x.strip() for x in (args.groups or "").split(",") if x.strip()],
+        ttl_seconds=args.ttl,
     )
-    items = list_devices()
-    items.append(device.__dict__)
-    save_devices(items)
-    render_wg_config()
-    conf = make_client_conf(private, psk, device.vpn_ip)
-    payload = bundle_for(device.name, conf, device.token)
-    print(f"Dispositivo: {device.name}\nID: {device.device_id}\nVPN IP: {device.vpn_ip}\n")
-    print(payload) if args.raw else qr_print(payload)
+    raw = json.dumps(payload, separators=(",", ":"))
+    print(f"Pairing v2 creato per: {args.name}")
+    print(f"Enrollment ID: {payload['enrollment_id']}")
+    print(f"Scadenza token: {payload['expires_at']}")
+    print(f"Endpoint enrollment: {payload['enrollment_url']}\n")
+    if args.raw:
+        print(raw)
+    else:
+        qr_print(raw)
+        print("\nLa private key WireGuard deve essere generata dal client e non viene mai inviata nel QR.")
+
+
+def cmd_pairing_list(_: argparse.Namespace) -> None:
+    print(json.dumps({"enrollments": list_enrollments()}, indent=2))
 
 
 def cmd_device_state(args: argparse.Namespace, enabled: bool) -> None:
@@ -359,15 +358,30 @@ def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="ge360-bridge", description="GE360 Universal Bridge")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    d = sub.add_parser("device-add")
+    d = sub.add_parser("device-add", help="Crea un pairing sicuro v2; il device nasce dopo l'enrollment del client")
+    d.add_argument("name")
+    d.add_argument("--type", default="unknown", choices=["android", "linux", "windows", "server", "tablet", "unknown"])
+    d.add_argument("--owner", default="")
+    d.add_argument("--expires", default=None, help="Scadenza del device YYYY-MM-DD")
+    d.add_argument("--notes", default="")
+    d.add_argument("--tags", default="")
+    d.add_argument("--groups", default="", help="Gruppi iniziali separati da virgola")
+    d.add_argument("--ttl", type=int, default=600, help="TTL token pairing in secondi (60..86400)")
+    d.add_argument("--raw", action="store_true")
+    d.set_defaults(func=cmd_device_add)
+
+    d = sub.add_parser("pairing-create")
     d.add_argument("name")
     d.add_argument("--type", default="unknown", choices=["android", "linux", "windows", "server", "tablet", "unknown"])
     d.add_argument("--owner", default="")
     d.add_argument("--expires", default=None)
     d.add_argument("--notes", default="")
     d.add_argument("--tags", default="")
+    d.add_argument("--groups", default="")
+    d.add_argument("--ttl", type=int, default=600)
     d.add_argument("--raw", action="store_true")
     d.set_defaults(func=cmd_device_add)
+    d = sub.add_parser("pairing-list"); d.set_defaults(func=cmd_pairing_list)
 
     d = sub.add_parser("device-show"); d.add_argument("device"); d.set_defaults(func=cmd_device_show)
     d = sub.add_parser("device-rename"); d.add_argument("device"); d.add_argument("new_name"); d.set_defaults(func=cmd_device_rename)

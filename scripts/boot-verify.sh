@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 fail=0
-for u in wg-quick@wg0 ge360-bridge-firewall ge360-bridge ge360-bridge-dashboard; do
+for u in wg-quick@wg0 ge360-bridge-firewall ge360-bridge ge360-bridge-dashboard ge360-bridge-enrollment; do
   if ! systemctl is-active --quiet "$u"; then
     echo "[FAIL] $u non attivo" >&2
     fail=1
@@ -13,6 +13,10 @@ if ! ip addr show wg0 | grep -q '10\.88\.0\.1/24'; then
 fi
 if ! curl -fsS --max-time 2 http://127.0.0.1:8789/healthz >/dev/null 2>&1; then
   echo "[FAIL] dashboard health non raggiungibile" >&2
+  fail=1
+fi
+if ! curl -kfsS --max-time 2 https://127.0.0.1:8790/healthz >/dev/null 2>&1; then
+  echo "[FAIL] pairing v2 HTTPS non raggiungibile" >&2
   fail=1
 fi
 exit "$fail"

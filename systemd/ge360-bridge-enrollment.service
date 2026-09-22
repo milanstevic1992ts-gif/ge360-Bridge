@@ -1,0 +1,20 @@
+[Unit]
+Description=GE360 Bridge secure pairing v2 HTTPS enrollment
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=PYTHONPATH=/opt/ge360-bridge
+ExecStart=/usr/bin/python3 -m ge360_bridge.pairing_server
+Restart=always
+RestartSec=2
+User=root
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/etc/ge360-bridge /etc/wireguard
+
+[Install]
+WantedBy=multi-user.target

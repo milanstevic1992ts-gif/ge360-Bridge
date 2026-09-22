@@ -21,7 +21,7 @@ WG_CONF = Path(os.environ.get("GE360_WG_CONF", "/etc/wireguard/wg0.conf"))
 
 SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 SAFE_TAG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,31}$")
-RESERVED_BRIDGE_PORTS = {8788, 8789}
+RESERVED_BRIDGE_PORTS = {8788, 8789, 8790}
 LOOPBACK_TARGETS = {"127.0.0.1", "::1", "localhost"}
 DEVICE_TYPES = {"android", "linux", "windows", "server", "tablet", "unknown"}
 _UNSET = object()

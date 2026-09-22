@@ -19,6 +19,10 @@ class GuardrailTests(unittest.TestCase):
         with self.assertRaises(self.core.BridgeError):
             self.core.register_service("bad", 8789, "127.0.0.1", 9000, [])
 
+    def test_reserved_pairing_port_rejected(self):
+        with self.assertRaises(self.core.BridgeError):
+            self.core.register_service("bad-pairing", 8790, "127.0.0.1", 9000, [])
+
     def test_non_loopback_target_rejected(self):
         with self.assertRaises(self.core.BridgeError):
             self.core.register_service("bad", 9000, "192.168.1.10", 9000, [])

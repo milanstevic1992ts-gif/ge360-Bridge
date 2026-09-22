@@ -19,37 +19,45 @@ device_id stabile, metadati, rename, enable/disable, scadenza, note, tag e migra
 
 ## Fase 2 — Gruppi e ACL semplificate — COMPLETATA
 
-Obiettivo: amministrare l'accesso ai servizi tramite gruppi senza perdere le ACL dirette esistenti.
+Gruppi persistenti, membership tramite device_id, servizi concessi ai gruppi e override allow/deny/inherit per singolo device.
+
+## Fase 3 — Pairing sicuro v2 — CORRENTE
+
+Obiettivo: eliminare la private key del client dal QR e dal server durante la creazione dei nuovi device.
 
 Scope obbligatorio:
-- Group Registry persistente in groups.json;
-- gruppi con nome, descrizione, stato enabled/disabled;
-- appartenenza device tramite device_id stabile;
-- un device può appartenere a più gruppi;
-- assegnazione dei servizi esistenti ai gruppi;
-- accesso effettivo ereditato dai gruppi;
-- override diretto per singolo device: allow, deny, inherit;
-- deny diretto con precedenza sull'accesso di gruppo;
-- allow diretto indipendente dai gruppi;
-- rename device compatibile con ACL dirette e membership di gruppo;
-- rimozione servizio pulita dai gruppi;
-- dashboard e CLI per gruppi/ACL;
-- health endpoint coerente con l'accesso effettivo;
-- migrazione automatica delle ACL v0.3 senza perdita di allowed_devices.
+- schema QR `ge360-bridge-pairing/v2`;
+- token monouso ad alta entropia;
+- token persistito solo come HMAC/hash;
+- TTL configurabile da 60 secondi a 24 ore;
+- un solo pairing pending per nome device;
+- endpoint bootstrap HTTPS dedicato pre-VPN;
+- certificato TLS self-signed persistente e fingerprint SHA-256 inserito nel QR;
+- client obbligato a generare localmente la propria private key WireGuard;
+- server riceve solo la public key WireGuard;
+- validazione public key WireGuard;
+- PSK generata dal server al momento dell'enrollment;
+- assegnazione IP VPN solo dopo enrollment valido;
+- associazione opzionale ai gruppi già esistenti;
+- stato enrollment pending/used/expired;
+- protezione replay tramite invalidazione atomica del token dopo il primo uso;
+- retention temporanea dei record used/expired per riconoscere replay e scadenze;
+- dashboard e CLI per generare QR v2;
+- servizio systemd dedicato `ge360-bridge-enrollment`;
+- boot verify dell'endpoint HTTPS;
+- porta pairing TCP 8790 riservata al sistema;
+- compatibilità con device già esistenti.
 
-Fuori scope Fase 2:
-- pairing v2;
+Fuori scope Fase 3:
 - Resource Registry;
 - Health Engine avanzato;
 - diagnostica avanzata;
 - audit;
+- SDK Android;
+- connessione automatica Android;
 - NAT discovery/traversal.
 
-Criterio di chiusura: test e CI verdi, upgrade da v0.3 senza perdita di device, servizi o ACL dirette, e verifica precedenza deny > allow diretto > gruppo > nessun accesso.
-
-## Fase 3 — Pairing sicuro v2 — PROSSIMA, NON AVVIATA
-
-Token monouso, TTL, private key generata sul client, protezione replay e invalidazione dopo enrollment.
+Criterio di chiusura: test e CI verdi, token non presente in chiaro nello stato, private key client mai presente nel payload server, replay e token scaduti rifiutati.
 
 ## Fase 4 — Resource Registry
 

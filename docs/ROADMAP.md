@@ -650,7 +650,7 @@ Chiusura verificata:
 - nessuna modifica persistente di devices.json/wg0.conf per i candidati;
 - nessun relay, TURN, port forwarding automatico, modifica PUBLIC_ENDPOINT o multi-server introdotto.
 
-## Fase 20 — Relay opzionale — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
+## Fase 20 — Relay opzionale — COMPLETATA
 
 Obiettivo: offrire un fallback WireGuard self-hosted quando direct/P2P falliscono, senza trasformare il relay in un control plane multi-server.
 
@@ -704,6 +704,23 @@ Fuori scope Fase 20:
 
 Criterio di chiusura: CI Python e Android verdi, forwarding UDP opaco verificato, registry senza token grezzi verificato, fallback transient Android verificato, backup relay token compatibile verificato, Update Engine reale ancora verde e nessuna funzione Fase 21 anticipata.
 
-## Fase 21 — Multi-server GE360
+Chiusura verificata:
+- commit funzionale 67a9dc46f4f9db2a8d311caf7f8b0f17cd1afce3;
+- CI Python run 35779176703 completata con successo: compileall, 158 test, bash -n inclusi install-relay/ge360-relay, build pacchetto reale v0.22 e preflight Update Engine;
+- CI Android run 35779176575 completata con successo: :ge360-bridge-android:testDebugUnitTest BUILD SUCCESSFUL;
+- test UDP reale verifica due porte distinte e forwarding byte-per-byte di payload WireGuard opaco;
+- relay status verifica payload_decryption=false, resource_catalog=false e multi_server_control_plane=false;
+- registry relay verifica SHA-256 device token e assenza token grezzo;
+- Bridge sync payload e status locali verificano assenza admin/device token;
+- attivazione Bridge verifica wg set runtime verso bridge-facing relay endpoint;
+- backup Fase 16 verifica relay.token opzionale, restore e compatibilità con backup senza relay;
+- P2P status aggiornato: Fase 20 presente ma relay_available solo quando realmente configurato;
+- Android fallback tipizzato e metadata relay persistiti nel blob Keystore;
+- P2P/relay usano startTransient e preservano la configurazione direct persistita;
+- relay monitor installato ma non abilitato automaticamente;
+- nessuna apertura firewall automatica;
+- nessun catalogo Resource sul relay, decrypt WireGuard, TURN terzo, auto-VPS o multi-server introdotto.
+
+## Fase 21 — Multi-server GE360 — PROSSIMA, NON AVVIATA
 
 Control plane GE360 con più server e risorse presentate alle app senza dipendere dalla macchina fisica.

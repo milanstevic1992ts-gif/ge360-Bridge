@@ -29,6 +29,7 @@ from .health import check_resource, check_resources, health_summary
 from .diagnostics import diagnose_resource
 from .doctor import connection_doctor
 from .audit import count_events, list_events
+from .metrics import query_series
 
 PORT = 8789
 STATE_DIR = Path(os.environ.get("GE360_BRIDGE_STATE_DIR", "/etc/ge360-bridge"))
@@ -255,7 +256,7 @@ def esc(value: object) -> str:
 
 
 CSS="""
-:root{color-scheme:dark;--bg:#07111f;--p:#0d1b2a;--b:#203b58;--t:#eef6ff;--m:#91a7bd;--ok:#3ddc97;--bad:#ff6b6b;--warn:#ffc857}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:14px system-ui}.w{max-width:1220px;margin:auto;padding:22px}h1,h2,h3{margin-top:0}.top,.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card,.panel,.box{background:var(--p);border:1px solid var(--b);border-radius:14px;padding:16px}.panel{margin-top:14px}.n{font-size:28px;font-weight:800}.m{color:var(--m)}table{width:100%;border-collapse:collapse}th,td{padding:9px 7px;text-align:left;border-bottom:1px solid #19324b;vertical-align:middle}th{color:var(--m);font-size:11px;text-transform:uppercase}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--bad);margin-right:6px}.ok{background:var(--ok)}.warn{background:var(--warn)}button,.btn,input,select,textarea{border:1px solid var(--b);background:#091828;color:var(--t);padding:8px 10px;border-radius:9px;text-decoration:none}button,.btn{cursor:pointer}.primary{background:#116aa9}.danger{color:#ffbaba;border-color:#7b3037}.small{padding:5px 7px;font-size:12px}.forms,.detail{display:grid;grid-template-columns:1fr 1fr;gap:12px}.box label{display:block;color:var(--m);font-size:12px;margin:8px 0 4px}.box input,.box select,.box textarea{width:100%}.checks{display:flex;gap:8px;flex-wrap:wrap}.checks label{display:flex;gap:5px}.checks input{width:auto}.pill,.tag{display:inline-block;border:1px solid var(--b);border-radius:999px;padding:5px 8px;margin:2px}.tag{font-size:11px}.msg{padding:10px;border:1px solid #31577c;border-radius:10px;margin-bottom:12px}.err{border-color:#7b3037}.qr{background:white;padding:12px;border-radius:12px;max-width:360px}.qr svg{width:100%;height:auto}.mono{font-family:monospace;word-break:break-all}.login{max-width:420px;margin:12vh auto}.tw{overflow:auto}@media(max-width:820px){.grid{grid-template-columns:1fr 1fr}.forms,.detail{grid-template-columns:1fr}}@media(max-width:500px){.grid{grid-template-columns:1fr}.w{padding:12px}}
+:root{color-scheme:dark;--bg:#07111f;--p:#0d1b2a;--b:#203b58;--t:#eef6ff;--m:#91a7bd;--ok:#3ddc97;--bad:#ff6b6b;--warn:#ffc857}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:14px system-ui}.w{max-width:1220px;margin:auto;padding:22px}h1,h2,h3{margin-top:0}.top,.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card,.panel,.box{background:var(--p);border:1px solid var(--b);border-radius:14px;padding:16px}.panel{margin-top:14px}.n{font-size:28px;font-weight:800}.m{color:var(--m)}table{width:100%;border-collapse:collapse}th,td{padding:9px 7px;text-align:left;border-bottom:1px solid #19324b;vertical-align:middle}th{color:var(--m);font-size:11px;text-transform:uppercase}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--bad);margin-right:6px}.ok{background:var(--ok)}.warn{background:var(--warn)}button,.btn,input,select,textarea{border:1px solid var(--b);background:#091828;color:var(--t);padding:8px 10px;border-radius:9px;text-decoration:none}button,.btn{cursor:pointer}.primary{background:#116aa9}.danger{color:#ffbaba;border-color:#7b3037}.small{padding:5px 7px;font-size:12px}.forms,.detail{display:grid;grid-template-columns:1fr 1fr;gap:12px}.box label{display:block;color:var(--m);font-size:12px;margin:8px 0 4px}.box input,.box select,.box textarea{width:100%}.checks{display:flex;gap:8px;flex-wrap:wrap}.checks label{display:flex;gap:5px}.checks input{width:auto}.pill,.tag{display:inline-block;border:1px solid var(--b);border-radius:999px;padding:5px 8px;margin:2px}.tag{font-size:11px}.msg{padding:10px;border:1px solid #31577c;border-radius:10px;margin-bottom:12px}.err{border-color:#7b3037}.qr{background:white;padding:12px;border-radius:12px;max-width:360px}.qr svg{width:100%;height:auto}.mono{font-family:monospace;word-break:break-all}.login{max-width:420px;margin:12vh auto}.tw{overflow:auto}.chart{width:100%;height:74px;display:block;color:#9fd3ff}.metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.metric-box{border:1px solid var(--b);border-radius:12px;padding:12px}@media(max-width:820px){.metric-grid{grid-template-columns:1fr}}@media(max-width:820px){.grid{grid-template-columns:1fr 1fr}.forms,.detail{grid-template-columns:1fr}}@media(max-width:500px){.grid{grid-template-columns:1fr}.w{padding:12px}}
 """
 
 
@@ -309,8 +310,8 @@ def dashboard_page(error:str="")->str:
         sv.append(f"<tr><td><b>{esc(service.get('icon','server'))} {esc(service['name'])}</b><div class='m'>{esc(service.get('description',''))}</div></td><td><span class='dot {dot_class}'></span><b>{esc(state)}</b><div class='m'>{esc(h.get('latency_ms') if h.get('latency_ms') is not None else '—')} ms</div><div class='m'>{esc(' · '.join(details))}</div>{error_html}</td><td><b>{esc(service.get('protocol','tcp').upper())}</b><div class='m mono'>{esc(service['bridge_url'])}</div><div class='m mono'>{esc(service['target'])}</div><div class='m'>health: {esc(service.get('health_url') or '—')} · timeout {esc(service.get('timeout_seconds',2.0))}s</div></td><td>{'<br>'.join(esc(x) for x in access) or '—'}</td><td><a class='btn small' href='/resource/{esc(service['name'])}'>Gestisci</a></td></tr>")
     service_checks="".join(f"<label><input type='checkbox' name='service' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in services) or "—"
     group_checks="".join(f"<label><input type='checkbox' name='group' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in groups if x.get("enabled",True)) or "—"
-    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 8 · Audit Log</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
-<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>Resource ONLINE</div></div><div class='card'><div class='n'>{c.get('degraded_services',0)}</div><div class='m'>Resource DEGRADED</div></div><div class='card'><div class='n'>v0.10</div><div class='m'>Audit Log</div></div></div>
+    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 9 · Metriche e grafici</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
+<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>Resource ONLINE</div></div><div class='card'><div class='n'>{c.get('degraded_services',0)}</div><div class='m'>Resource DEGRADED</div></div><div class='card'><div class='n'>v0.11</div><div class='m'>Metriche</div></div></div>
 <div class='panel'><h2>Dispositivi</h2><div class='tw'><table><tr><th>Device</th><th>Stato</th><th>Gruppi</th><th>Accesso effettivo</th><th>Handshake</th><th></th></tr>{''.join(dr) or '<tr><td colspan=6>Nessun device</td></tr>'}</table></div></div>
 <div class='panel'><h2>Gruppi</h2><div class='tw'><table><tr><th>Gruppo</th><th>Device</th><th>Resource</th><th>Stato</th><th></th></tr>{''.join(gr) or '<tr><td colspan=5>Nessun gruppo</td></tr>'}</table></div></div>
 <div class='panel'><h2>Audit Log</h2><div class='m'>Eventi persistenti: {count_events()}</div><div class='tw'><table><tr><th>Ora</th><th>Evento</th><th>Device</th><th>Resource</th><th>Risultato</th></tr>{''.join(f"<tr><td class='mono'>{esc(e.get('timestamp'))}</td><td>{esc(e.get('event'))}</td><td>{esc(e.get('device_name') or e.get('device_id') or '—')}</td><td>{esc(e.get('resource') or '—')}</td><td>{esc(e.get('result') or e.get('error') or '—')}</td></tr>" for e in list_events(limit=20)) or '<tr><td colspan=5>Nessun evento</td></tr>'}</table></div><p><a class='btn' href='/api/audit'>JSON audit</a></p></div>
@@ -318,8 +319,57 @@ def dashboard_page(error:str="")->str:
 <div class='panel'><h2>Registra Resource</h2><form method='post' action='/resource/add'><div class='forms'><div class='box'><label>Nome</label><input name='name' placeholder='rilievi' required><label>Icona</label><input name='icon' value='server'><label>Descrizione</label><textarea name='description'></textarea><label>Protocollo</label><select name='protocol'><option value='http'>HTTP</option><option value='https'>HTTPS</option><option value='tcp'>TCP</option></select></div><div class='box'><label>Bridge port</label><input type='number' name='bridge_port' min='1' max='65535' required><label>Target host</label><input name='target_host' value='127.0.0.1' required><label>Target port</label><input type='number' name='target_port' min='1' max='65535' required><label>Health URL/path opzionale</label><input name='health_url' placeholder='/healthz'><label>Timeout secondi</label><input type='number' name='timeout' min='0.1' max='30' step='0.1' value='2.0'><p><button class='primary'>Registra Resource</button></p></div></div></form></div>
 <div class='panel forms'><div class='box'><h3>Crea gruppo</h3><form method='post' action='/group/create'><label>Nome</label><input name='name' placeholder='amministratori' required><label>Descrizione</label><textarea name='description'></textarea><p><button class='primary'>Crea gruppo</button></p></form></div>
 <div class='box'><h3>Pairing sicuro v2</h3><form method='post' action='/device/add'><label>Nome device</label><input name='name' required><label>Tipo</label><select name='device_type'><option>android</option><option>tablet</option><option>linux</option><option>windows</option><option>server</option><option selected>unknown</option></select><label>Proprietario</label><input name='owner'><label>Tag</label><input name='tags'><label>Scadenza device</label><input type='date' name='expires_at'><label>Gruppi iniziali</label><div class='checks'>{group_checks}</div><label>TTL token</label><select name='ttl'><option value='300'>5 minuti</option><option value='600' selected>10 minuti</option><option value='1800'>30 minuti</option><option value='86400'>24 ore</option></select><p><button class='primary'>Genera QR v2 monouso</button></p></form></div></div>
-<div class='panel row'><a class='btn' href='/api/status'>JSON</a><a class='btn' href='/logout'>Esci</a></div></div>"""
+<div class='panel row'><div><a class='btn' href='/metrics'>Metriche</a> <a class='btn' href='/api/status'>JSON</a></div><a class='btn' href='/logout'>Esci</a></div></div>"""
     return shell(body,refresh=True)
+
+
+def sparkline_svg(values:list[float|int|None], width:int=320, height:int=74)->str:
+    clean=[float(v) for v in values if v is not None]
+    if not clean:
+        return "<div class='m'>Nessun campione</div>"
+    lo=min(clean); hi=max(clean)
+    span=hi-lo if hi!=lo else 1.0
+    points=[]
+    count=max(1,len(values)-1)
+    for i,value in enumerate(values):
+        if value is None:
+            continue
+        x=round(i/count*width,2)
+        y=round(height-((float(value)-lo)/span)*(height-8)-4,2)
+        points.append(f"{x},{y}")
+    return f"<svg class='chart' viewBox='0 0 {width} {height}' preserveAspectRatio='none'><polyline fill='none' stroke='currentColor' stroke-width='2' points='{' '.join(points)}'/></svg>"
+
+
+def metrics_page(window:str="24h")->str:
+    try:
+        data=query_series(window)
+    except ValueError:
+        window="24h"; data=query_series(window)
+    nav=" ".join(f"<a class='btn small' href='/metrics?window={w}'>{w}</a>" for w in ("1h","24h","7d","30d"))
+    bridge=data.get("bridge",[])
+    conn=[x.get("connections",0) for x in bridge]
+    errs=[x.get("errors",0) for x in bridge]
+    uptime=bridge[-1].get("uptime_seconds") if bridge else None
+    bridge_panel=f"""<div class='panel'><h2>Bridge · {esc(window)}</h2><div class='metric-grid'><div class='metric-box'><b>Connessioni</b><div class='n'>{sum(conn)}</div>{sparkline_svg(conn)}</div><div class='metric-box'><b>Errori</b><div class='n'>{sum(errs)}</div>{sparkline_svg(errs)}</div></div><p class='m'>Uptime sistema: {esc(round(float(uptime)/3600,1) if uptime is not None else '—')} h</p></div>"""
+
+    resources=[]
+    for name,points in data.get("resources",{}).items():
+        latency=[x.get("latency_ms") for x in points]
+        errors=sum(int(x.get("errors",0)) for x in points)
+        online=round((sum(float(x.get("online_ratio",0)) for x in points)/len(points))*100,1) if points else 0
+        resources.append(f"""<div class='metric-box'><h3>{esc(name)}</h3><div class='m'>Online {esc(online)}% · errori {esc(errors)}</div><b>Latenza ms</b>{sparkline_svg(latency)}</div>""")
+    resource_panel=f"<div class='panel'><h2>Resource</h2><div class='metric-grid'>{''.join(resources) or '<div class="m">Nessun campione Resource</div>'}</div></div>"
+
+    devices=[]
+    for device_id,points in data.get("devices",{}).items():
+        name=points[-1].get("device_name") if points else device_id
+        rx=[x.get("rx_bytes",0) for x in points]
+        tx=[x.get("tx_bytes",0) for x in points]
+        hs=[x.get("handshake_age_seconds") for x in points]
+        devices.append(f"""<div class='metric-box'><h3>{esc(name or device_id)}</h3><div class='m mono'>{esc(device_id)}</div><b>RX · {human_bytes(sum(rx))}</b>{sparkline_svg(rx)}<b>TX · {human_bytes(sum(tx))}</b>{sparkline_svg(tx)}<b>Handshake age (s)</b>{sparkline_svg(hs)}</div>""")
+    device_panel=f"<div class='panel'><h2>Device</h2><div class='metric-grid'>{''.join(devices) or '<div class="m">Nessun campione Device</div>'}</div></div>"
+    body=f"""<div class='w'><div class='top'><div><h1>Metriche GE360</h1><div class='m'>Fase 9 · campioni ogni 60s · retention 35 giorni</div></div><a class='btn' href='/'>← Dashboard</a></div><div class='panel row'><div>{nav}</div><a class='btn' href='/api/metrics?window={esc(window)}'>JSON</a></div>{bridge_panel}{resource_panel}{device_panel}</div>"""
+    return shell(body,"Metriche GE360")
 
 
 def device_page(identifier:str,error:str="")->str:
@@ -415,7 +465,7 @@ def pairing_page(name:str,payload)->str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version="GE360BridgeDashboard/0.10"
+    server_version="GE360BridgeDashboard/0.11"
     def log_message(self,fmt,*args): print(f"[dashboard] {self.client_address[0]} {fmt % args}")
     def send_body(self,body,status=200,content_type="text/html; charset=utf-8",headers=None):
         data=body.encode() if isinstance(body,str) else body
@@ -442,6 +492,15 @@ class Handler(BaseHTTPRequestHandler):
         if path=="/logout": self.redirect("/",{"Set-Cookie":"ge360_admin=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict"}); return
         if not self.require_auth(): return
         if path=="/": self.send_body(dashboard_page())
+        elif path=="/metrics":
+            q=parse_qs(urlparse(self.path).query)
+            self.send_body(metrics_page((q.get("window") or ["24h"])[0]))
+        elif path=="/api/metrics":
+            q=parse_qs(urlparse(self.path).query)
+            window=(q.get("window") or ["24h"])[0]
+            try: data=query_series(window)
+            except ValueError: self.send_body('{"error":"invalid_window"}',400,"application/json"); return
+            self.send_body(json.dumps(data,indent=2),200,"application/json")
         elif path=="/api/status": self.send_body(json.dumps(status_data(),indent=2),200,"application/json")
         elif path=="/api/health":
             data=status_data().get("health",{})

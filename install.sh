@@ -79,14 +79,17 @@ say "Migrazione registry Fasi 1-4 + Audit Fase 8"
 PYTHONPATH="$PY_DST" python3 - <<'PY'
 from ge360_bridge.core import upgrade_device_registry, upgrade_acl_registry, upgrade_resource_registry
 from ge360_bridge.audit import init_db, audit_db_path
+from ge360_bridge.metrics import init_db as init_metrics_db, metrics_db_path
 print(f"Device migrati/aggiornati: {upgrade_device_registry()}")
 print(f"ACL migrate/aggiornate: {upgrade_acl_registry()}")
 print(f"Resource migrate/aggiornate: {upgrade_resource_registry()}")
 init_db()
+init_metrics_db()
 print(f"Audit DB: {audit_db_path()}")
+print(f"Metrics DB: {metrics_db_path()}")
 PY
 
-chmod 600 "$STATE_DIR"/*.json "$STATE_DIR"/audit.db "$STATE_DIR"/bridge.env "$STATE_DIR"/server.key "$STATE_DIR"/server.pub "$STATE_DIR"/dashboard.token "$STATE_DIR"/enrollment.key "$STATE_DIR"/pairing-tls.key "$STATE_DIR"/pairing-tls.crt
+chmod 600 "$STATE_DIR"/*.json "$STATE_DIR"/audit.db "$STATE_DIR"/metrics.db "$STATE_DIR"/bridge.env "$STATE_DIR"/server.key "$STATE_DIR"/server.pub "$STATE_DIR"/dashboard.token "$STATE_DIR"/enrollment.key "$STATE_DIR"/pairing-tls.key "$STATE_DIR"/pairing-tls.crt
 chmod 700 "$STATE_DIR/pairings"
 
 if [[ ! -e "$WG_DIR/$WG_IF.conf" ]]; then
@@ -163,7 +166,7 @@ if [[ -n "$WAN4" ]]; then
 fi
 
 say "Installazione completata"
-echo "Versione: GE360 Bridge v0.10 - Fase 8 Audit Log"
+echo "Versione: GE360 Bridge v0.11 - Fase 9 Metriche e grafici"
 echo "Dashboard locale: http://127.0.0.1:8789"
 echo "Dashboard via Bridge: http://10.88.0.1:8789"
 echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
@@ -173,4 +176,5 @@ echo "Health Engine: ge360-bridge health-check"
 echo "Diagnostica: ge360-bridge diagnose-resource rilievi --api-path /healthz --pdf-path /api/report.pdf"
 echo "Connection Doctor: ge360-bridge doctor rilievi --device telefono-milan --api-path /healthz"
 echo "Audit Log: ge360-bridge audit-list --limit 50"
+echo "Metriche: ge360-bridge metrics --window 24h"
 echo "I vecchi comandi service-* restano alias compatibili."

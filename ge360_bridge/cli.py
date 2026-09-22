@@ -52,6 +52,7 @@ from .health import check_resource, check_resources, health_summary
 from .diagnostics import diagnose_resource
 from .doctor import connection_doctor
 from .audit import list_events
+from .metrics import collect_snapshot, query_series
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -431,6 +432,19 @@ def cmd_audit_list(args: argparse.Namespace) -> None:
     }, indent=2))
 
 
+def cmd_metrics_show(args: argparse.Namespace) -> None:
+    try:
+        data = query_series(args.window, resource=args.resource, device=args.device)
+    except ValueError as exc:
+        raise BridgeError(str(exc)) from exc
+    print(json.dumps(data, indent=2))
+
+
+def cmd_metrics_sample(_: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps(collect_snapshot(), indent=2))
+
+
 def cmd_list(_: argparse.Namespace) -> None:
     safe_devices = [{k: v for k, v in d.items() if k not in ("preshared_key", "token")} for d in list_devices()]
     print(json.dumps({"devices": safe_devices, "groups": list_groups(), "resources": list_resources(), "services": list_services()}, indent=2))
@@ -589,6 +603,14 @@ def parser() -> argparse.ArgumentParser:
     a.add_argument("--device")
     a.add_argument("--resource")
     a.set_defaults(func=cmd_audit_list)
+
+    m = sub.add_parser("metrics", help="Metriche Fase 9")
+    m.add_argument("--window", default="24h", choices=["1h","24h","7d","30d"])
+    m.add_argument("--resource")
+    m.add_argument("--device")
+    m.set_defaults(func=cmd_metrics_show)
+    m = sub.add_parser("metrics-sample", help="Forza un campione metriche")
+    m.set_defaults(func=cmd_metrics_sample)
 
     l = sub.add_parser("list"); l.set_defaults(func=cmd_list)
     st = sub.add_parser("status"); st.set_defaults(func=cmd_status)

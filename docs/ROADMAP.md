@@ -177,9 +177,31 @@ Fuori scope Fase 8:
 
 Criterio di chiusura: test storage/filtri/privacy/ACL e CI verdi.
 
-## Fase 9 — Metriche e grafici — PROSSIMA, NON AVVIATA
+## Fase 9 — Metriche e grafici — CORRENTE
 
-RX/TX, latenza, handshake, uptime, errori e connessioni.
+Obiettivo: conservare e visualizzare serie temporali leggere del Bridge.
+
+Scope obbligatorio:
+- metrics.db SQLite WAL con permessi 0600;
+- campionamento ogni 60 secondi;
+- retention 35 giorni;
+- RX/TX WireGuard con delta per periodo;
+- handshake age e connected ratio;
+- latenza e online ratio Resource;
+- uptime sistema;
+- connessioni ed errori derivati dall'audit;
+- finestre 1h, 24h, 7d, 30d;
+- bucket automatici per limitare i punti;
+- CLI metrics e metrics-sample;
+- dashboard grafici SVG;
+- API autenticata /api/metrics.
+
+Fuori scope Fase 9:
+- Resource Launcher;
+- SDK Android;
+- self-healing.
+
+Criterio di chiusura: test delta/aggregazione/retention/permessi e CI verdi.
 
 ## Fase 10 — Resource Launcher
 

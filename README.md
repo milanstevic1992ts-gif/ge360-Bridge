@@ -1,53 +1,46 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.10 — Fase 8 completata: Audit Log**. La Fase 9 è la prossima e non è ancora stata avviata.
+Versione corrente: **v0.11 — Fase 9: Metriche e grafici**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## Audit Log
+## Metriche
 
-GE360 Bridge registra eventi tecnici persistenti senza salvare i contenuti delle applicazioni.
-
-Eventi:
+Campionamento ogni 60 secondi con retention 35 giorni.
 
 ```text
-DEVICE_CONNECTED
-DEVICE_DISCONNECTED
-RESOURCE_ACCESS
-RESOURCE_ONLINE
-RESOURCE_OFFLINE
-ACL_CHANGED
+RX / TX
+handshake
+latenza
+uptime
+errori
+connessioni
 ```
 
-Database:
+Finestre:
 
 ```text
-/etc/ge360-bridge/audit.db
+1h · 24h · 7d · 30d
 ```
 
 ## CLI
 
 ```bash
-ge360-bridge audit-list
-ge360-bridge audit-list --resource rilievi --limit 50
-ge360-bridge audit-list --device telefono-milan
+ge360-bridge metrics --window 24h
+ge360-bridge metrics --window 7d --resource rilievi
 ```
 
 ## Dashboard
 
 ```text
-http://127.0.0.1:8789
+http://127.0.0.1:8789/metrics
 ```
 
-Mostra gli ultimi eventi e rende disponibile l'API autenticata:
+API:
 
 ```text
-GET /api/audit
+GET /api/metrics?window=24h
 ```
-
-## Privacy
-
-L'audit registra metadati tecnici, non payload, body HTTP, PDF o dati interni delle app.
 
 ## Aggiornamento
 
@@ -57,4 +50,4 @@ git pull
 sudo ./install.sh
 ```
 
-Vedi `docs/AUDIT_LOG.md`.
+Vedi `docs/METRICS.md`.

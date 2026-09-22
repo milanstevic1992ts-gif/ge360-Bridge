@@ -17,6 +17,7 @@ from .core import (
 )
 from .health import check_resources
 from .audit import init_db, write_event
+from .metrics import collect_snapshot, init_db as init_metrics_db
 
 BIND_HOST = "10.88.0.1"
 HEALTH_PORT = 8788
@@ -229,8 +230,18 @@ async def audit_monitor(stop: asyncio.Event) -> None:
             pass
 
 
+async def metrics_monitor(stop: asyncio.Event) -> None:
+    while not stop.is_set():
+        await asyncio.to_thread(collect_snapshot)
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=60.0)
+        except asyncio.TimeoutError:
+            pass
+
+
 async def main() -> None:
     init_db()
+    init_metrics_db()
     devices = list_devices()
     groups = list_groups()
     servers: list[asyncio.AbstractServer] = []
@@ -259,12 +270,14 @@ async def main() -> None:
 
     tasks = [asyncio.create_task(s.serve_forever()) for s in servers]
     monitor_task = asyncio.create_task(audit_monitor(stop))
+    metrics_task = asyncio.create_task(metrics_monitor(stop))
     await stop.wait()
     for s in servers:
         s.close()
     await asyncio.gather(*(s.wait_closed() for s in servers), return_exceptions=True)
     monitor_task.cancel()
-    await asyncio.gather(monitor_task, return_exceptions=True)
+    metrics_task.cancel()
+    await asyncio.gather(monitor_task, metrics_task, return_exceptions=True)
     for t in tasks:
         t.cancel()
 

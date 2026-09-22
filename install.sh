@@ -19,7 +19,7 @@ say(){ printf '\n==> %s\n' "$*"; }
 
 say "Installazione dipendenze"
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y wireguard-tools nftables qrencode python3 miniupnpc iproute2 curl openssl
+DEBIAN_FRONTEND=noninteractive apt-get install -y wireguard-tools nftables qrencode python3 miniupnpc iproute2 curl openssl iputils-ping traceroute
 
 say "Installazione GE360 Bridge"
 install -d -m 700 "$STATE_DIR" "$STATE_DIR/pairings" "$WG_DIR"
@@ -160,12 +160,12 @@ if [[ -n "$WAN4" ]]; then
 fi
 
 say "Installazione completata"
-echo "Versione: GE360 Bridge v0.7 - Fase 5 Health Engine"
+echo "Versione: GE360 Bridge v0.8 - Fase 6 Diagnostica avanzata"
 echo "Dashboard locale: http://127.0.0.1:8789"
 echo "Dashboard via Bridge: http://10.88.0.1:8789"
 echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
 echo "Pairing HTTPS: porta TCP $PAIRING_PORT"
 echo "Roadmap: docs/ROADMAP.md"
 echo "Health Engine: ge360-bridge health-check"
-echo "Esempio: ge360-bridge health-check rilievi --no-cache"
+echo "Diagnostica: ge360-bridge diagnose-resource rilievi --api-path /healthz --pdf-path /api/report.pdf"
 echo "I vecchi comandi service-* restano alias compatibili."

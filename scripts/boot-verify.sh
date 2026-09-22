@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 fail=0
+for cmd in ping traceroute; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "[FAIL] comando diagnostico $cmd non disponibile" >&2
+    fail=1
+  fi
+done
 for u in wg-quick@wg0 ge360-bridge-firewall ge360-bridge ge360-bridge-dashboard ge360-bridge-enrollment; do
   if ! systemctl is-active --quiet "$u"; then
     echo "[FAIL] $u non attivo" >&2

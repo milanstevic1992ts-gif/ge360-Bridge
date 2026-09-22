@@ -93,9 +93,35 @@ Fuori scope Fase 5:
 
 Criterio di chiusura: test e CI verdi per tutti gli stati previsti e nessuna regressione sul proxy Resource.
 
-## Fase 6 — Diagnostica avanzata — PROSSIMA, NON AVVIATA
+## Fase 6 — Diagnostica avanzata — CORRENTE
 
-Ping Bridge/backend, test TCP/API/PDF, DNS e traceroute.
+Obiettivo: fornire test manuali, separati e non persistenti per localizzare un problema di comunicazione senza anticipare il Connection Doctor.
+
+Scope obbligatorio:
+- ping Bridge 10.88.0.1;
+- ping backend target;
+- test TCP target host/port;
+- test API HTTP/HTTPS su percorso della Resource;
+- test PDF con status, Content-Type, Content-Length e firma %PDF-;
+- DNS tramite resolver di sistema;
+- traceroute target;
+- timeout controllati;
+- API/PDF confinati al target registrato della Resource;
+- CLI diagnose-resource;
+- pannello diagnostica nella pagina Resource;
+- risultati JSON strutturati;
+- nessuna persistenza dei risultati.
+
+Fuori scope Fase 6:
+- classificazione automatica della causa;
+- categorie Connection Doctor;
+- storico;
+- metriche temporali;
+- audit;
+- self-healing;
+- NAT discovery/traversal.
+
+Criterio di chiusura: test e CI verdi per TCP/API/PDF/DNS/ping/traceroute e nessun accesso API/PDF fuori dal target Resource.
 
 ## Fase 7 — Connection Doctor
 

@@ -1,33 +1,32 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.7 — Fase 5 completata: Health Engine**. La Fase 6 è la prossima e non è ancora stata avviata.
+Versione corrente: **v0.8 — Fase 6: Diagnostica avanzata**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## Health Engine
+## Diagnostica Fase 6
 
-Il Bridge controlla ogni Resource con lo stesso motore usato da dashboard, CLI e `/v1/status`.
-
-Stati:
+Per ogni Resource puoi verificare separatamente:
 
 ```text
-ONLINE
-DEGRADED
-OFFLINE
-TIMEOUT
-UNAUTHORIZED
-BAD_RESPONSE
+Ping Bridge
+Ping backend
+TCP target
+API
+PDF
+DNS
+Traceroute
 ```
 
-Controlli disponibili in Fase 5:
+Esempio Rilievi:
 
-- TCP;
-- latenza;
-- HTTP/HTTPS;
-- status code;
-- validazione JSON;
-- TLS;
-- timeout per Resource.
+```bash
+ge360-bridge diagnose-resource rilievi \
+  --api-path /healthz \
+  --pdf-path /api/report/123.pdf
+```
+
+Il test PDF verifica anche la firma reale `%PDF-`, quindi distingue un PDF valido da una pagina HTML restituita per errore.
 
 ## Aggiornamento
 
@@ -37,47 +36,24 @@ git pull
 sudo ./install.sh
 ```
 
-## Rilievi
-
-Assicurati che la Resource abbia il suo health endpoint:
-
-```bash
-sudo ge360-bridge resource-update rilievi \
-  --protocol http \
-  --health-url /healthz \
-  --timeout 2
-```
-
-Poi:
-
-```bash
-ge360-bridge health-check rilievi --no-cache
-```
+La Fase 6 richiede anche `iputils-ping` e `traceroute`, installati automaticamente.
 
 ## Dashboard
+
+Apri:
 
 ```text
 http://127.0.0.1:8789
 ```
 
-Mostra per ogni Resource:
+Poi entra nella Resource, per esempio `rilievi`, e usa **Diagnostica avanzata · Fase 6**.
 
-- stato;
-- latenza;
-- TCP;
-- HTTP status;
-- JSON;
-- TLS;
-- eventuale errore.
+## Guardrail
 
-API health autenticata:
-
-```text
-GET /api/health
-```
+API e PDF possono puntare soltanto alla Resource selezionata. Il Bridge non usa la diagnostica per interrogare host arbitrari.
 
 ## Importante
 
-La Fase 5 non introduce diagnostica avanzata. Ping, DNS, traceroute, test PDF e Connection Doctor appartengono alle Fasi 6 e 7.
+La Fase 6 mostra i test separati ma non decide ancora automaticamente “qual è il problema”. Le categorie e la diagnosi automatica appartengono alla **Fase 7 — Connection Doctor**.
 
-Vedi `docs/HEALTH_ENGINE.md`.
+Vedi `docs/DIAGNOSTICS.md`.

@@ -49,6 +49,7 @@ from .core import (
 )
 from .pairing import create_pairing_payload, list_enrollments
 from .health import check_resource, check_resources, health_summary
+from .diagnostics import diagnose_resource
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -382,6 +383,19 @@ def cmd_health_check(args: argparse.Namespace) -> None:
     print(json.dumps({"summary": health_summary(results), "resources": results}, indent=2))
 
 
+def cmd_diagnose_resource(args: argparse.Namespace) -> None:
+    resource = next((r for r in list_resources() if r.get("name") == args.resource), None)
+    if not resource:
+        raise BridgeError(f"Resource non trovata: {args.resource}")
+    report = diagnose_resource(
+        resource,
+        api_path=args.api_path,
+        pdf_path=args.pdf_path,
+        include_traceroute=not args.no_traceroute,
+    )
+    print(json.dumps(report, indent=2))
+
+
 def cmd_list(_: argparse.Namespace) -> None:
     safe_devices = [{k: v for k, v in d.items() if k not in ("preshared_key", "token")} for d in list_devices()]
     print(json.dumps({"devices": safe_devices, "groups": list_groups(), "resources": list_resources(), "services": list_services()}, indent=2))
@@ -518,6 +532,13 @@ def parser() -> argparse.ArgumentParser:
     h.add_argument("resource", nargs="?", help="Nome Resource; senza nome controlla tutte")
     h.add_argument("--no-cache", action="store_true")
     h.set_defaults(func=cmd_health_check)
+
+    x = sub.add_parser("diagnose-resource", help="Diagnostica avanzata Fase 6 su una Resource")
+    x.add_argument("resource")
+    x.add_argument("--api-path", help="Percorso API locale della Resource; default health_url o /")
+    x.add_argument("--pdf-path", help="Percorso PDF locale della Resource, es. /api/report/123.pdf")
+    x.add_argument("--no-traceroute", action="store_true")
+    x.set_defaults(func=cmd_diagnose_resource)
 
     l = sub.add_parser("list"); l.set_defaults(func=cmd_list)
     st = sub.add_parser("status"); st.set_defaults(func=cmd_status)

@@ -26,6 +26,7 @@ from .core import (
 )
 from .pairing import create_pairing_payload, list_enrollments
 from .health import check_resource, check_resources, health_summary
+from .diagnostics import diagnose_resource
 
 PORT = 8789
 STATE_DIR = Path(os.environ.get("GE360_BRIDGE_STATE_DIR", "/etc/ge360-bridge"))
@@ -306,8 +307,8 @@ def dashboard_page(error:str="")->str:
         sv.append(f"<tr><td><b>{esc(service.get('icon','server'))} {esc(service['name'])}</b><div class='m'>{esc(service.get('description',''))}</div></td><td><span class='dot {dot_class}'></span><b>{esc(state)}</b><div class='m'>{esc(h.get('latency_ms') if h.get('latency_ms') is not None else '—')} ms</div><div class='m'>{esc(' · '.join(details))}</div>{error_html}</td><td><b>{esc(service.get('protocol','tcp').upper())}</b><div class='m mono'>{esc(service['bridge_url'])}</div><div class='m mono'>{esc(service['target'])}</div><div class='m'>health: {esc(service.get('health_url') or '—')} · timeout {esc(service.get('timeout_seconds',2.0))}s</div></td><td>{'<br>'.join(esc(x) for x in access) or '—'}</td><td><a class='btn small' href='/resource/{esc(service['name'])}'>Gestisci</a></td></tr>")
     service_checks="".join(f"<label><input type='checkbox' name='service' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in services) or "—"
     group_checks="".join(f"<label><input type='checkbox' name='group' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in groups if x.get("enabled",True)) or "—"
-    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 5 · Health Engine</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
-<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>Resource ONLINE</div></div><div class='card'><div class='n'>{c.get('degraded_services',0)}</div><div class='m'>Resource DEGRADED</div></div><div class='card'><div class='n'>v0.7</div><div class='m'>Health Engine</div></div></div>
+    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 6 · Diagnostica avanzata</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
+<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>Resource ONLINE</div></div><div class='card'><div class='n'>{c.get('degraded_services',0)}</div><div class='m'>Resource DEGRADED</div></div><div class='card'><div class='n'>v0.8</div><div class='m'>Diagnostica avanzata</div></div></div>
 <div class='panel'><h2>Dispositivi</h2><div class='tw'><table><tr><th>Device</th><th>Stato</th><th>Gruppi</th><th>Accesso effettivo</th><th>Handshake</th><th></th></tr>{''.join(dr) or '<tr><td colspan=6>Nessun device</td></tr>'}</table></div></div>
 <div class='panel'><h2>Gruppi</h2><div class='tw'><table><tr><th>Gruppo</th><th>Device</th><th>Resource</th><th>Stato</th><th></th></tr>{''.join(gr) or '<tr><td colspan=5>Nessun gruppo</td></tr>'}</table></div></div>
 <div class='panel'><h2>Health Engine · Resource</h2><div class='tw'><table><tr><th>Resource</th><th>Stato / controlli</th><th>Protocollo / target</th><th>ACL</th><th></th></tr>{''.join(sv) or '<tr><td colspan=5>Nessuna Resource</td></tr>'}</table></div></div>
@@ -365,8 +366,36 @@ def resource_page(name:str,error:str="")->str:
     health_panel=f"""<div class='panel'><div class='row'><div><h2>Health Engine</h2><div><b>{esc(h.get('state','OFFLINE'))}</b> · {esc(h.get('latency_ms') if h.get('latency_ms') is not None else '—')} ms</div><div class='m'>{esc(h.get('error') or 'nessun errore')}</div></div><div><div>TCP: {esc(checks.get('tcp',{}).get('latency_ms') if checks.get('tcp',{}).get('ok') else 'KO')} ms</div><div>HTTP: {esc(checks.get('http',{}).get('status_code') or '—')}</div><div>JSON: {esc('OK' if checks.get('json',{}).get('ok') else ('KO' if checks.get('json',{}).get('performed') else '—'))}</div><div>TLS: {esc(checks.get('tls',{}).get('version') or ('OK' if checks.get('tls',{}).get('ok') else ('KO' if checks.get('tls',{}).get('performed') else '—')))}</div></div></div></div>"""
     body=f"""<div class='w'><div class='top'><div><h1>{esc(r.get('icon','server'))} {esc(r['name'])}</h1><div class='m'>Resource Registry · Health Engine</div></div><a class='btn' href='/'>← Dashboard</a></div>{banner}{health_panel}
 <div class='panel'><form method='post' action='/resource/update'><input type='hidden' name='name' value='{esc(r['name'])}'><div class='forms'><div class='box'><label>Icona</label><input name='icon' value='{esc(r.get('icon','server'))}'><label>Descrizione</label><textarea name='description'>{esc(r.get('description',''))}</textarea><label>Protocollo</label><select name='protocol'><option value='tcp'{selected('tcp')}>TCP</option><option value='http'{selected('http')}>HTTP</option><option value='https'{selected('https')}>HTTPS</option></select><label>Abilitata</label><input type='checkbox' name='enabled' value='1' {checked}></div><div class='box'><label>Bridge port</label><input type='number' name='bridge_port' value='{esc(r['bridge_port'])}' required><label>Target host</label><input name='target_host' value='{esc(r['target_host'])}' required><label>Target port</label><input type='number' name='target_port' value='{esc(r['target_port'])}' required><label>Health URL/path</label><input name='health_url' value='{esc(r.get('health_url',''))}'><label>Timeout secondi</label><input type='number' min='0.1' max='30' step='0.1' name='timeout' value='{esc(r.get('timeout_seconds',2.0))}'><p><button class='primary'>Salva Resource</button></p></div></div></form></div>
+<div class='panel'><h2>Diagnostica avanzata · Fase 6</h2><form method='post' action='/diagnostics/run'><input type='hidden' name='resource' value='{esc(r['name'])}'><div class='forms'><div class='box'><label>Percorso API opzionale</label><input name='api_path' placeholder='{esc(r.get('health_url') or '/healthz')}'><p class='m'>Se vuoto usa health_url oppure /.</p></div><div class='box'><label>Percorso PDF opzionale</label><input name='pdf_path' placeholder='/api/report/123.pdf'><label><input type='checkbox' name='traceroute' value='1' checked style='width:auto'> includi traceroute</label><p><button class='primary'>Esegui diagnostica</button></p></div></div></form></div>
 <div class='panel row'><div><b>ACL dirette</b><div class='m'>allow: {esc(', '.join(r.get('allowed_devices',[])) or '—')} · deny: {esc(', '.join(r.get('denied_devices',[])) or '—')}</div></div><form method='post' action='/resource/remove'><input type='hidden' name='name' value='{esc(r['name'])}'><button class='danger'>Rimuovi Resource</button></form></div></div>"""
     return shell(body,r["name"])
+
+
+def diagnostics_page(resource:dict, report:dict)->str:
+    rows=[]
+    for key,item in report.get("checks",{}).items():
+        skipped=item.get("skipped",False)
+        state="SKIPPED" if skipped else ("OK" if item.get("ok") else "FAIL")
+        detail=[]
+        for field in ("host","port","status_code","content_type","content_length","latency_ms","packet_loss_percent","rtt_avg_ms","error"):
+            value=item.get(field)
+            if value not in (None,""):
+                detail.append(f"{field}={value}")
+        if item.get("addresses"):
+            detail.append("addresses="+", ".join(x.get("address","") for x in item["addresses"]))
+        if item.get("hops"):
+            detail.append("hops="+ " | ".join(item["hops"][:12]))
+        if item.get("pdf_magic"):
+            detail.append("pdf_magic=true")
+        if item.get("json_valid") is not None:
+            detail.append("json_valid="+str(item.get("json_valid")).lower())
+        rows.append(f"<tr><td><b>{esc(key)}</b></td><td>{esc(state)}</td><td class='mono'>{esc(' · '.join(detail) or '—')}</td></tr>")
+    summary=report.get("summary",{})
+    body=f"""<div class='w'><div class='top'><div><h1>Diagnostica · {esc(resource['name'])}</h1><div class='m'>Fase 6 · risultati istantanei, non persistiti</div></div><a class='btn' href='/resource/{esc(resource['name'])}'>← Resource</a></div>
+<div class='grid'><div class='card'><div class='n'>{esc(summary.get('performed',0))}</div><div class='m'>test eseguiti</div></div><div class='card'><div class='n'>{esc(summary.get('ok',0))}</div><div class='m'>OK</div></div><div class='card'><div class='n'>{esc(summary.get('failed',0))}</div><div class='m'>falliti</div></div><div class='card'><div class='n'>v0.8</div><div class='m'>diagnostica</div></div></div>
+<div class='panel'><div class='tw'><table><tr><th>Test</th><th>Esito</th><th>Dettagli</th></tr>{''.join(rows)}</table></div></div>
+<div class='panel'><details><summary>JSON completo</summary><pre class='mono'>{esc(json.dumps(report,indent=2))}</pre></details></div></div>"""
+    return shell(body,f"Diagnostica {resource['name']}")
 
 
 def pairing_page(name:str,payload)->str:
@@ -380,7 +409,7 @@ def pairing_page(name:str,payload)->str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version="GE360BridgeDashboard/0.7"
+    server_version="GE360BridgeDashboard/0.8"
     def log_message(self,fmt,*args): print(f"[dashboard] {self.client_address[0]} {fmt % args}")
     def send_body(self,body,status=200,content_type="text/html; charset=utf-8",headers=None):
         data=body.encode() if isinstance(body,str) else body
@@ -464,6 +493,17 @@ class Handler(BaseHTTPRequestHandler):
                 render_wg_config(); reload_runtime(); self.redirect(f"/device/{did}"); return
             if path=="/device/toggle":
                 did=(f.get("device_id") or [""])[0]; set_device_enabled(did,(f.get("enabled") or ["0"])[0]=="1"); render_wg_config(); reload_runtime(); self.redirect(f"/device/{did}"); return
+            if path=="/diagnostics/run":
+                name=(f.get("resource") or [""])[0]
+                resource=find_resource(name)
+                if not resource: raise BridgeError("Resource non trovata.")
+                report=diagnose_resource(
+                    resource,
+                    api_path=(f.get("api_path") or [""])[0] or None,
+                    pdf_path=(f.get("pdf_path") or [""])[0] or None,
+                    include_traceroute=(f.get("traceroute") or ["0"])[0]=="1",
+                )
+                self.send_body(diagnostics_page(resource,report)); return
             if path=="/resource/add":
                 register_resource(
                     (f.get("name") or [""])[0].strip(),

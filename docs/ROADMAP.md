@@ -525,7 +525,7 @@ Chiusura verificata:
 - workflow Android non modificato e ultimo run su main verde;
 - nessun auto-update, NAT discovery/traversal, relay o multi-server introdotto.
 
-## Fase 18 — NAT Discovery — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
+## Fase 18 — NAT Discovery — COMPLETATA
 
 Obiettivo: osservare endpoint pubblico e comportamento NAT/CGNAT del server senza modificare port mapping, firewall o WireGuard e senza anticipare il traversal P2P.
 
@@ -569,7 +569,22 @@ Fuori scope Fase 18:
 
 Criterio di chiusura: CI Python verde, parser STUN e classificazioni deterministiche testati, UPnP verificato read-only, dashboard/CLI compilano, nessuna funzione Fase 19 anticipata.
 
-## Fase 19 — NAT Traversal P2P
+Chiusura verificata:
+- commit funzionale ef02d884e39cc06780bec28ea64bfeb8d92dc6ca;
+- CI Python completata con successo, inclusi compileall, 140 test e bash -n;
+- parser XOR-MAPPED-ADDRESS, RESPONSE-ORIGIN, OTHER-ADDRESS e transaction ID verificati;
+- classificazioni NO_NAT, ENDPOINT_INDEPENDENT_MAPPING, SYMMETRIC_LIKE_MAPPING e UNKNOWN verificate;
+- CGNAT RFC 6598 YES/HIGH, LIKELY/MEDIUM e NO_EVIDENCE/HIGH verificati;
+- test con singola destinazione conferma UNKNOWN invece di sovrastimare il NAT type;
+- IPv6 globale filtrato correttamente;
+- UPnP verificato soltanto con upnpc -s, senza -a/-d;
+- guardrail verificati: wireguard_port_inferred=false, phase19_traversal_attempted=false, port_mapping_changed=false;
+- dashboard /nat e /api/nat compilano con cache solo in memoria;
+- pacchetto reale Update Engine continua a costruirsi e passare preflight;
+- workflow Android non modificato e ultimo run su main verde;
+- nessun hole punching, port forwarding, modifica PUBLIC_ENDPOINT, relay o multi-server introdotto.
+
+## Fase 19 — NAT Traversal P2P — PROSSIMA, NON AVVIATA
 
 Tentativo di connessione WireGuard diretta tramite discovery/NAT traversal.
 

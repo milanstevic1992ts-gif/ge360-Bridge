@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.20 — Fase 18: NAT Discovery in verifica CI**.
+Versione corrente: **v0.20 — Fase 18 completata: NAT Discovery**. La Fase 19 — NAT Traversal P2P è la prossima e non è stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

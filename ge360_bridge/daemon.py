@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import signal
+import subprocess
+import time
 from typing import Any
 
 from .core import (
@@ -14,6 +16,7 @@ from .core import (
     list_resources,
 )
 from .health import check_resources
+from .audit import init_db, write_event
 
 BIND_HOST = "10.88.0.1"
 HEALTH_PORT = 8788
@@ -35,18 +38,43 @@ async def pipe(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> No
 
 
 async def handle_client(client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter, resource: dict[str, Any], allowed: set[str]) -> None:
+    started = time.monotonic()
     peer = client_writer.get_extra_info("peername")
     peer_ip = peer[0] if peer else ""
+    device = next((d for d in list_devices() if d.get("vpn_ip") == peer_ip), None)
+    audit_common = {
+        "device_id": device.get("device_id") if device else None,
+        "device_name": device.get("name") if device else None,
+        "resource": resource.get("name"),
+        "action": "tcp_connect",
+        "ip": peer_ip or None,
+    }
     if peer_ip not in allowed:
+        await asyncio.to_thread(write_event, "RESOURCE_ACCESS", **audit_common, result="DENY", error="acl_denied")
         client_writer.close()
         await client_writer.wait_closed()
         return
     try:
         target_reader, target_writer = await asyncio.open_connection(resource["target_host"], int(resource["target_port"]))
-    except OSError:
+    except OSError as exc:
+        await asyncio.to_thread(
+            write_event,
+            "RESOURCE_ACCESS",
+            **audit_common,
+            result="ERROR",
+            latency_ms=(time.monotonic() - started) * 1000.0,
+            error=exc.__class__.__name__,
+        )
         client_writer.close()
         await client_writer.wait_closed()
         return
+    await asyncio.to_thread(
+        write_event,
+        "RESOURCE_ACCESS",
+        **audit_common,
+        result="ALLOW",
+        latency_ms=(time.monotonic() - started) * 1000.0,
+    )
     await asyncio.gather(pipe(client_reader, target_writer), pipe(target_reader, client_writer))
 
 
@@ -118,7 +146,91 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
     await writer.wait_closed()
 
 
+def _wireguard_connected(devices: list[dict[str, Any]]) -> dict[str, bool]:
+    try:
+        proc = subprocess.run(
+            ["wg", "show", "wg0", "dump"],
+            text=True,
+            capture_output=True,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {d["device_id"]: False for d in devices}
+    latest_by_key: dict[str, int] = {}
+    if proc.returncode == 0:
+        lines = [x for x in proc.stdout.splitlines() if x.strip()]
+        for raw in lines[1:]:
+            parts = raw.split("\t")
+            if len(parts) >= 5:
+                try:
+                    latest_by_key[parts[0]] = int(parts[4])
+                except ValueError:
+                    latest_by_key[parts[0]] = 0
+    now = int(time.time())
+    return {
+        d["device_id"]: bool(
+            latest_by_key.get(d.get("public_key",""), 0)
+            and now - latest_by_key.get(d.get("public_key",""), 0) <= 180
+            and device_is_active(d)
+        )
+        for d in devices
+    }
+
+
+async def audit_monitor(stop: asyncio.Event) -> None:
+    previous_devices: dict[str, bool] | None = None
+    previous_resources: dict[str, bool] | None = None
+    while not stop.is_set():
+        devices = list_devices()
+        current_devices = await asyncio.to_thread(_wireguard_connected, devices)
+        resources = list_resources()
+        health = await asyncio.to_thread(check_resources, resources)
+        current_resources = {h["name"]: h.get("state") == "ONLINE" for h in health}
+        health_by_name = {h["name"]: h for h in health}
+
+        if previous_devices is not None:
+            by_id = {d["device_id"]: d for d in devices}
+            for device_id, connected in current_devices.items():
+                before = previous_devices.get(device_id, False)
+                if connected == before:
+                    continue
+                d = by_id.get(device_id, {})
+                await asyncio.to_thread(
+                    write_event,
+                    "DEVICE_CONNECTED" if connected else "DEVICE_DISCONNECTED",
+                    device_id=device_id,
+                    device_name=d.get("name"),
+                    action="wireguard_handshake",
+                    result="CONNECTED" if connected else "DISCONNECTED",
+                    ip=d.get("vpn_ip"),
+                )
+
+        if previous_resources is not None:
+            for name, online in current_resources.items():
+                if name not in previous_resources or previous_resources[name] == online:
+                    continue
+                h = health_by_name.get(name, {})
+                await asyncio.to_thread(
+                    write_event,
+                    "RESOURCE_ONLINE" if online else "RESOURCE_OFFLINE",
+                    resource=name,
+                    action="health_transition",
+                    result=h.get("state"),
+                    latency_ms=h.get("latency_ms"),
+                    error=h.get("error"),
+                )
+
+        previous_devices = current_devices
+        previous_resources = current_resources
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=15.0)
+        except asyncio.TimeoutError:
+            pass
+
+
 async def main() -> None:
+    init_db()
     devices = list_devices()
     groups = list_groups()
     servers: list[asyncio.AbstractServer] = []
@@ -146,10 +258,13 @@ async def main() -> None:
             pass
 
     tasks = [asyncio.create_task(s.serve_forever()) for s in servers]
+    monitor_task = asyncio.create_task(audit_monitor(stop))
     await stop.wait()
     for s in servers:
         s.close()
     await asyncio.gather(*(s.wait_closed() for s in servers), return_exceptions=True)
+    monitor_task.cancel()
+    await asyncio.gather(monitor_task, return_exceptions=True)
     for t in tasks:
         t.cancel()
 

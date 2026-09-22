@@ -1,39 +1,37 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.9 — Fase 7 completata: Connection Doctor**. La Fase 8 è la prossima e non è ancora stata avviata.
+Versione corrente: **v0.10 — Fase 8: Audit Log**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## Connection Doctor
+## Audit Log
 
-Il Doctor usa Health Engine, Diagnostica, WireGuard e ACL per classificare i problemi senza inventare cause.
+GE360 Bridge registra eventi tecnici persistenti senza salvare i contenuti delle applicazioni.
 
-Categorie:
+Eventi:
 
 ```text
-VPN_DOWN
-BRIDGE_DOWN
-DEVICE_NOT_AUTHORIZED
-SERVICE_NOT_ALLOWED
-BACKEND_DOWN
-HTTP_ERROR
-PDF_URL_INVALID
-TIMEOUT
-PORT_CONFLICT
-ENDPOINT_INVALID
-OK
+DEVICE_CONNECTED
+DEVICE_DISCONNECTED
+RESOURCE_ACCESS
+RESOURCE_ONLINE
+RESOURCE_OFFLINE
+ACL_CHANGED
 ```
 
-## Rilievi
+Database:
+
+```text
+/etc/ge360-bridge/audit.db
+```
+
+## CLI
 
 ```bash
-ge360-bridge doctor rilievi \
-  --device telefono-milan \
-  --api-path /healthz \
-  --pdf-path /api/report/123.pdf
+ge360-bridge audit-list
+ge360-bridge audit-list --resource rilievi --limit 50
+ge360-bridge audit-list --device telefono-milan
 ```
-
-Il risultato include categoria primaria, finding secondari ed evidenze.
 
 ## Dashboard
 
@@ -41,7 +39,15 @@ Il risultato include categoria primaria, finding secondari ed evidenze.
 http://127.0.0.1:8789
 ```
 
-Apri una Resource e usa Diagnostica. Inserendo anche il device, il Doctor può distinguere problemi VPN/ACL da problemi backend.
+Mostra gli ultimi eventi e rende disponibile l'API autenticata:
+
+```text
+GET /api/audit
+```
+
+## Privacy
+
+L'audit registra metadati tecnici, non payload, body HTTP, PDF o dati interni delle app.
 
 ## Aggiornamento
 
@@ -51,4 +57,4 @@ git pull
 sudo ./install.sh
 ```
 
-Vedi `docs/CONNECTION_DOCTOR.md`.
+Vedi `docs/AUDIT_LOG.md`.

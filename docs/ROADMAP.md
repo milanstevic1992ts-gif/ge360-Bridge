@@ -151,9 +151,31 @@ Fuori scope Fase 7:
 
 Criterio di chiusura: test dedicato per ogni categoria e CI verde.
 
-## Fase 8 — Audit log — PROSSIMA, NON AVVIATA
+## Fase 8 — Audit log — CORRENTE
 
-Storico eventi del Bridge senza salvare payload personali delle applicazioni.
+Obiettivo: conservare uno storico tecnico del Bridge senza salvare payload delle applicazioni.
+
+Scope obbligatorio:
+- SQLite /etc/ge360-bridge/audit.db con WAL e permessi 0600;
+- eventi DEVICE_CONNECTED e DEVICE_DISCONNECTED da transizioni handshake WireGuard;
+- RESOURCE_ACCESS con allow/deny/error, device, Resource, IP e latenza;
+- RESOURCE_ONLINE e RESOURCE_OFFLINE da transizioni Health Engine;
+- ACL_CHANGED per override device e ACL/gruppi;
+- campi timestamp, device, resource, action, result, IP, latency, error;
+- nessuna colonna payload/body;
+- CLI audit-list con filtri;
+- dashboard ultimi eventi;
+- API autenticata /api/audit;
+- audit non bloccante rispetto alle modifiche ACL;
+- nessuna raccolta di contenuto applicativo.
+
+Fuori scope Fase 8:
+- grafici;
+- metriche temporali RX/TX;
+- analytics;
+- self-healing.
+
+Criterio di chiusura: test storage/filtri/privacy/ACL e CI verdi.
 
 ## Fase 9 — Metriche e grafici
 

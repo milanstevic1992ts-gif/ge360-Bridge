@@ -443,6 +443,29 @@ def random_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def _audit_acl(
+    action: str,
+    *,
+    device: dict[str, Any] | None = None,
+    resource: str | None = None,
+    result: str | None = None,
+) -> None:
+    try:
+        from .audit import write_event
+        write_event(
+            "ACL_CHANGED",
+            device_id=device.get("device_id") if device else None,
+            device_name=device.get("name") if device else None,
+            resource=resource,
+            action=action,
+            result=result,
+            ip=device.get("vpn_ip") if device else None,
+        )
+    except Exception:
+        # L'audit non deve rendere fallibile una modifica ACL già applicata.
+        pass
+
+
 def register_resource(
     name: str,
     bridge_port: int,
@@ -579,6 +602,7 @@ def set_device_enabled(identifier: str, enabled: bool) -> dict[str, Any] | None:
             break
     if found is not None:
         save_devices(items)
+        _audit_acl("device_enable" if enabled else "device_disable", device=found, result="enabled" if enabled else "disabled")
     return found
 
 
@@ -667,6 +691,7 @@ def remove_group(name: str) -> bool:
     if len(new) == len(groups):
         return False
     save_groups(new)
+    _audit_acl("group_remove", result=name)
     return True
 
 
@@ -676,6 +701,7 @@ def set_group_enabled(name: str, enabled: bool) -> dict[str, Any]:
         if group["name"] == name:
             group["enabled"] = bool(enabled)
             save_groups(groups)
+            _audit_acl("group_enable" if enabled else "group_disable", result=name)
             return group
     raise BridgeError(f"Gruppo non trovato: {name}")
 
@@ -694,6 +720,11 @@ def set_group_device(group_name: str, device_identifier: str, assigned: bool) ->
                 members.discard(device["device_id"])
             group["device_ids"] = sorted(members)
             save_groups(groups)
+            _audit_acl(
+                "group_device_add" if assigned else "group_device_remove",
+                device=device,
+                result=group_name,
+            )
             return group
     raise BridgeError(f"Gruppo non trovato: {group_name}")
 
@@ -712,6 +743,11 @@ def set_group_resource(group_name: str, resource_name: str, allowed: bool) -> di
             group["allowed_services"] = sorted(resources)
             group["allowed_resources"] = list(group["allowed_services"])
             save_groups(groups)
+            _audit_acl(
+                "group_resource_grant" if allowed else "group_resource_revoke",
+                resource=resource_name,
+                result=group_name,
+            )
             return group
     raise BridgeError(f"Gruppo non trovato: {group_name}")
 
@@ -749,6 +785,12 @@ def set_device_access_override(resource_name: str, device_identifier: str, decis
         resource["allowed_devices"] = sorted(allowed)
         resource["denied_devices"] = sorted(denied)
         save_resources(resources)
+        _audit_acl(
+            f"device_override_{decision}",
+            device=device,
+            resource=resource_name,
+            result=decision,
+        )
         return resource
     raise BridgeError(f"Resource non trovata: {resource_name}")
 

@@ -60,7 +60,7 @@ Fuori scope Fase 4:
 
 Criterio di chiusura: test e CI verdi, migrazione v0.5 senza perdita di porta/target/ACL/gruppi e compatibilità service-* verificata.
 
-## Fase 5 — Health Engine — CORRENTE
+## Fase 5 — Health Engine — COMPLETATA
 
 Obiettivo: misurare lo stato attuale di ogni Resource con un unico motore condiviso da dashboard, CLI e status Bridge.
 
@@ -93,7 +93,7 @@ Fuori scope Fase 5:
 
 Criterio di chiusura: test e CI verdi per tutti gli stati previsti e nessuna regressione sul proxy Resource.
 
-## Fase 6 — Diagnostica avanzata
+## Fase 6 — Diagnostica avanzata — PROSSIMA, NON AVVIATA
 
 Ping Bridge/backend, test TCP/API/PDF, DNS e traceroute.
 

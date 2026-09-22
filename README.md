@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.7 — Fase 5: Health Engine**.
+Versione corrente: **v0.7 — Fase 5 completata: Health Engine**. La Fase 6 è la prossima e non è ancora stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

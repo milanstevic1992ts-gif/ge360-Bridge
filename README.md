@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.15 — Fase 13: Auto discovery backend in verifica CI**.
+Versione corrente: **v0.15 — Fase 13 completata: Auto discovery backend**. La Fase 14 — Agent Linux è la prossima e non è stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

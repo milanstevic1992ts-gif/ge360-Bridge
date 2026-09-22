@@ -1,0 +1,8 @@
+[project]
+name = "ge360-bridge"
+version = "0.1.0"
+description = "GE360 Universal Bridge"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

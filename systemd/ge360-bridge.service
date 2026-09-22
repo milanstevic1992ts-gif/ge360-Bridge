@@ -1,0 +1,21 @@
+[Unit]
+Description=GE360 Universal Bridge TCP proxy
+After=network-online.target wg-quick@wg0.service
+Wants=network-online.target
+Requires=wg-quick@wg0.service
+
+[Service]
+Type=simple
+Environment=PYTHONPATH=/opt/ge360-bridge
+ExecStart=/usr/bin/python3 -m ge360_bridge.daemon
+Restart=always
+RestartSec=2
+User=root
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/etc/ge360-bridge
+
+[Install]
+WantedBy=multi-user.target

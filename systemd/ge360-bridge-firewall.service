@@ -1,0 +1,12 @@
+[Unit]
+Description=GE360 Bridge firewall confinement
+After=network-pre.target
+Before=ge360-bridge.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ge360-bridge-firewall
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

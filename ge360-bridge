@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export PYTHONPATH=/opt/ge360-bridge${PYTHONPATH:+:$PYTHONPATH}
+exec python3 -m ge360_bridge.cli "$@"

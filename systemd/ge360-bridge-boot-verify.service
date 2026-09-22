@@ -1,0 +1,10 @@
+[Unit]
+Description=GE360 Bridge boot verification
+After=network-online.target ge360-bridge.service ge360-bridge-firewall.service wg-quick@wg0.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ge360-bridge-boot-verify
+
+[Install]
+WantedBy=multi-user.target

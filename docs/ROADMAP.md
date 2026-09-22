@@ -289,9 +289,32 @@ Fuori scope Fase 12:
 
 Criterio di chiusura: CI Python verde + CI Android verde, configurazione accettata dal parser WireGuard ufficiale e nessuna funzione Fase 13 anticipata.
 
-## Fase 13 — Auto discovery backend — PROSSIMA, NON AVVIATA
+## Fase 13 — Auto discovery backend — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
 
-Endpoint /.well-known/ge360 e proposta automatica di nuovi backend.
+Obiettivo: rilevare e proporre backend GE360 locali senza ripetere configurazioni manuali e senza introdurre scansioni LAN.
+
+Scope:
+- contratto GET /.well-known/ge360 con schema v1;
+- validazione rigida di name, type, version, health, icon e description;
+- discovery automatico limitato ai listener IPv4 esattamente su 127.0.0.1;
+- porte specifiche opzionali per discovery controllato;
+- nessuna scansione di subnet o LAN;
+- proposta non distruttiva con rilevamento conflitti;
+- import esplicito attraverso il Resource Registry esistente;
+- resources.json autoritativo e services.json mirror invariati;
+- CLI resource-discover e resource-import;
+- dashboard autenticata /discovery e /api/discovery;
+- test dedicati a schema, loopback, conflitti, import e guardrail.
+
+Fuori scope Fase 13:
+- Agent Linux;
+- scansione LAN;
+- import automatico senza conferma;
+- self-healing;
+- NAT discovery/traversal;
+- relay e multi-server.
+
+Criterio di chiusura: CI Python verde, compatibilità Resource Registry verificata, rilettura scope e nessuna funzione Fase 14 anticipata.
 
 ## Fase 14 — Agent Linux
 

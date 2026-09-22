@@ -1,22 +1,37 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.14 — Fase 12 completata: Connessione automatica Android**. La Fase 13 è la prossima e non è ancora stata avviata.
+Versione corrente: **v0.15 — Fase 13: Auto discovery backend in verifica CI**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
+## Backend auto discovery
+
+I backend GE360 possono dichiararsi tramite:
+
+```text
+GET /.well-known/ge360
+```
+
+Il Bridge rileva soltanto backend locali loopback, valida rigidamente il manifest e li propone senza importarli automaticamente.
+
+CLI:
+
+```bash
+ge360-bridge resource-discover
+sudo ge360-bridge resource-import 9888
+```
+
+Dashboard autenticata:
+
+```text
+http://127.0.0.1:8789/discovery
+```
+
+Il Resource Registry esistente resta autoritativo e `services.json` continua a essere il mirror di compatibilità.
+
 ## Android automatic connection
 
-Il modulo `ge360-bridge-android` ora integra:
-
-- WireGuard Android ufficiale;
-- `GoBackend`;
-- Android VpnService;
-- consenso VPN;
-- reconnect;
-- backoff;
-- stato connessione;
-- auto-restore;
-- persistenza cifrata Android Keystore.
+Il modulo `ge360-bridge-android` mantiene WireGuard Android ufficiale, GoBackend, VpnService, reconnect, backoff, auto-restore e persistenza cifrata Android Keystore.
 
 Il tunnel resta limitato a:
 
@@ -24,23 +39,8 @@ Il tunnel resta limitato a:
 10.88.0.1/32
 ```
 
-## Integrazione
+## Limite di rete
 
-```kotlin
-val ge360 = Ge360AndroidBridge.create(context)
-val provisioned = ge360.session.provision(qrPayload)
-ge360.session.connect(provisioned)
-```
+L'auto-discovery non risolve CGNAT. Se non esiste IPv4 pubblico raggiungibile o IPv6 globale raggiungibile, la connessione diretta da Internet non può essere garantita senza un futuro nodo pubblico/relay/rendezvous.
 
-Se Android richiede il consenso VPN, usa `ge360.vpnPermissionIntent()` e passa l'esito a `ge360.onVpnPermissionResult(...)`.
-
-## Fase successiva
-
-La Fase 13 — Auto discovery backend è la prossima e non è stata avviata. `/.well-known/ge360` non è presente nel codice della Fase 12.
-
-Vedi:
-
-```text
-docs/ANDROID_CONNECTION.md
-android-sdk/README.md
-```
+Vedi `docs/BACKEND_DISCOVERY.md`.

@@ -30,6 +30,7 @@ from .diagnostics import diagnose_resource
 from .doctor import connection_doctor
 from .audit import count_events, list_events
 from .metrics import query_series
+from .discovery import discover_backends, import_discovered_backend
 
 PORT = 8789
 STATE_DIR = Path(os.environ.get("GE360_BRIDGE_STATE_DIR", "/etc/ge360-bridge"))
@@ -310,8 +311,8 @@ def dashboard_page(error:str="")->str:
         sv.append(f"<tr><td><b>{esc(service.get('icon','server'))} {esc(service['name'])}</b><div class='m'>{esc(service.get('description',''))}</div></td><td><span class='dot {dot_class}'></span><b>{esc(state)}</b><div class='m'>{esc(h.get('latency_ms') if h.get('latency_ms') is not None else '—')} ms</div><div class='m'>{esc(' · '.join(details))}</div>{error_html}</td><td><b>{esc(service.get('protocol','tcp').upper())}</b><div class='m mono'>{esc(service['bridge_url'])}</div><div class='m mono'>{esc(service['target'])}</div><div class='m'>health: {esc(service.get('health_url') or '—')} · timeout {esc(service.get('timeout_seconds',2.0))}s</div></td><td>{'<br>'.join(esc(x) for x in access) or '—'}</td><td><a class='btn small' href='/resource/{esc(service['name'])}'>Gestisci</a></td></tr>")
     service_checks="".join(f"<label><input type='checkbox' name='service' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in services) or "—"
     group_checks="".join(f"<label><input type='checkbox' name='group' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in groups if x.get("enabled",True)) or "—"
-    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 11 · Android SDK</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
-<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>Resource ONLINE</div></div><div class='card'><div class='n'>{c.get('degraded_services',0)}</div><div class='m'>Resource DEGRADED</div></div><div class='card'><div class='n'>v0.13</div><div class='m'>Android SDK</div></div></div>
+    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 13 · Auto discovery backend</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
+<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>Resource ONLINE</div></div><div class='card'><div class='n'>{c.get('degraded_services',0)}</div><div class='m'>Resource DEGRADED</div></div><div class='card'><div class='n'>v0.15</div><div class='m'>Bridge</div></div></div>
 <div class='panel'><h2>Dispositivi</h2><div class='tw'><table><tr><th>Device</th><th>Stato</th><th>Gruppi</th><th>Accesso effettivo</th><th>Handshake</th><th></th></tr>{''.join(dr) or '<tr><td colspan=6>Nessun device</td></tr>'}</table></div></div>
 <div class='panel'><h2>Gruppi</h2><div class='tw'><table><tr><th>Gruppo</th><th>Device</th><th>Resource</th><th>Stato</th><th></th></tr>{''.join(gr) or '<tr><td colspan=5>Nessun gruppo</td></tr>'}</table></div></div>
 <div class='panel'><h2>Audit Log</h2><div class='m'>Eventi persistenti: {count_events()}</div><div class='tw'><table><tr><th>Ora</th><th>Evento</th><th>Device</th><th>Resource</th><th>Risultato</th></tr>{''.join(f"<tr><td class='mono'>{esc(e.get('timestamp'))}</td><td>{esc(e.get('event'))}</td><td>{esc(e.get('device_name') or e.get('device_id') or '—')}</td><td>{esc(e.get('resource') or '—')}</td><td>{esc(e.get('result') or e.get('error') or '—')}</td></tr>" for e in list_events(limit=20)) or '<tr><td colspan=5>Nessun evento</td></tr>'}</table></div><p><a class='btn' href='/api/audit'>JSON audit</a></p></div>
@@ -319,8 +320,36 @@ def dashboard_page(error:str="")->str:
 <div class='panel'><h2>Registra Resource</h2><form method='post' action='/resource/add'><div class='forms'><div class='box'><label>Nome</label><input name='name' placeholder='rilievi' required><label>Icona</label><input name='icon' value='server'><label>Descrizione</label><textarea name='description'></textarea><label>Protocollo</label><select name='protocol'><option value='http'>HTTP</option><option value='https'>HTTPS</option><option value='tcp'>TCP</option></select></div><div class='box'><label>Bridge port</label><input type='number' name='bridge_port' min='1' max='65535' required><label>Target host</label><input name='target_host' value='127.0.0.1' required><label>Target port</label><input type='number' name='target_port' min='1' max='65535' required><label>Health URL/path opzionale</label><input name='health_url' placeholder='/healthz'><label>Timeout secondi</label><input type='number' name='timeout' min='0.1' max='30' step='0.1' value='2.0'><p><button class='primary'>Registra Resource</button></p></div></div></form></div>
 <div class='panel forms'><div class='box'><h3>Crea gruppo</h3><form method='post' action='/group/create'><label>Nome</label><input name='name' placeholder='amministratori' required><label>Descrizione</label><textarea name='description'></textarea><p><button class='primary'>Crea gruppo</button></p></form></div>
 <div class='box'><h3>Pairing sicuro v2</h3><form method='post' action='/device/add'><label>Nome device</label><input name='name' required><label>Tipo</label><select name='device_type'><option>android</option><option>tablet</option><option>linux</option><option>windows</option><option>server</option><option selected>unknown</option></select><label>Proprietario</label><input name='owner'><label>Tag</label><input name='tags'><label>Scadenza device</label><input type='date' name='expires_at'><label>Gruppi iniziali</label><div class='checks'>{group_checks}</div><label>TTL token</label><select name='ttl'><option value='300'>5 minuti</option><option value='600' selected>10 minuti</option><option value='1800'>30 minuti</option><option value='86400'>24 ore</option></select><p><button class='primary'>Genera QR v2 monouso</button></p></form></div></div>
-<div class='panel'><b>Launcher device</b><div class='mono'>http://10.88.0.1:8788/hub</div><div class='m'>Visibile ai device VPN e filtrato dalle ACL effettive.</div></div><div class='panel row'><div><a class='btn' href='/metrics'>Metriche</a> <a class='btn' href='/api/status'>JSON</a></div><a class='btn' href='/logout'>Esci</a></div></div>"""
+<div class='panel'><b>Launcher device</b><div class='mono'>http://10.88.0.1:8788/hub</div><div class='m'>Visibile ai device VPN e filtrato dalle ACL effettive.</div></div><div class='panel row'><div><a class='btn' href='/discovery'>Backend discovery</a> <a class='btn' href='/metrics'>Metriche</a> <a class='btn' href='/api/status'>JSON</a></div><a class='btn' href='/logout'>Esci</a></div></div>"""
     return shell(body,refresh=True)
+
+
+
+def discovery_page(error:str="")->str:
+    report=discover_backends()
+    rows=[]
+    for proposal in report.get("proposals",[]):
+        manifest=proposal["manifest"]
+        suggested=proposal.get("suggested_bridge_port")
+        bridge_value="" if suggested is None else str(suggested)
+        status=proposal.get("status","")
+        reason=proposal.get("reason","")
+        if status in {"new","bridge_port_required"}:
+            action=f"""<form method='post' action='/discovery/import'>
+<input type='hidden' name='host' value='{esc(proposal["target_host"])}'>
+<input type='hidden' name='target_port' value='{esc(proposal["target_port"])}'>
+<input type='hidden' name='scheme' value='{esc(proposal["protocol"])}'>
+<input type='number' name='bridge_port' min='1' max='65535' value='{esc(bridge_value)}' placeholder='bridge port' required>
+<button class='primary small'>Importa</button></form>"""
+        else:
+            action="—"
+        rows.append(f"<tr><td><b>{esc(manifest['name'])}</b><div class='m mono'>{esc(proposal['resource_name'])} · v{esc(manifest['version'])}</div></td><td class='mono'>{esc(proposal['protocol'])}://{esc(proposal['target_host'])}:{esc(proposal['target_port'])}</td><td>{esc(manifest['health'])}</td><td><b>{esc(status)}</b><div class='m'>{esc(reason)}</div></td><td>{action}</td></tr>")
+    banner=f"<div class='err'>{esc(error)}</div>" if error else ""
+    body=f"""<div class='w'><div class='top'><div><h1>Backend discovery</h1><div class='m'>Fase 13 · solo loopback · /.well-known/ge360</div></div><a class='btn' href='/'>← Dashboard</a></div>{banner}
+<div class='panel'><div class='m'>Porte controllate: {esc(', '.join(str(x) for x in report.get('scanned_ports',[])) or 'nessuna')} · risposte valide: {len(report.get('proposals',[]))} · porte senza manifest valido: {len(report.get('errors',[]))}</div></div>
+<div class='panel'><div class='tw'><table><tr><th>Backend</th><th>Target</th><th>Health</th><th>Stato</th><th></th></tr>{''.join(rows) or '<tr><td colspan=5>Nessun backend GE360 rilevato.</td></tr>'}</table></div></div>
+<div class='panel'><p><a class='btn' href='/api/discovery'>JSON discovery</a></p><div class='m'>La scansione non importa automaticamente nulla e non esce dal loopback.</div></div></div>"""
+    return shell(body)
 
 
 def sparkline_svg(values:list[float|int|None], width:int=320, height:int=74)->str:
@@ -507,6 +536,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_body(json.dumps(data,indent=2),200,"application/json")
         elif path=="/api/audit":
             self.send_body(json.dumps({"events":list_events(limit=200)},indent=2),200,"application/json")
+        elif path=="/api/discovery":
+            self.send_body(json.dumps(discover_backends(),indent=2),200,"application/json")
+        elif path=="/discovery": self.send_body(discovery_page())
         elif path.startswith("/device/"): self.send_body(device_page(path.split("/",2)[2]))
         elif path.startswith("/group/"): self.send_body(group_page(path.split("/",2)[2]))
         elif path.startswith("/resource/"): self.send_body(resource_page(path.split("/",2)[2]))
@@ -578,6 +610,16 @@ class Handler(BaseHTTPRequestHandler):
                     device_identifier=(f.get("device") or [""])[0] or None,
                 )
                 self.send_body(diagnostics_page(resource,report,doctor)); return
+            if path=="/discovery/import":
+                bridge_raw=(f.get("bridge_port") or [""])[0].strip()
+                resource=import_discovered_backend(
+                    host=(f.get("host") or ["127.0.0.1"])[0],
+                    target_port=int((f.get("target_port") or ["0"])[0]),
+                    scheme=(f.get("scheme") or ["http"])[0],
+                    bridge_port=int(bridge_raw) if bridge_raw else None,
+                    timeout=1.0,
+                )
+                reload_runtime(); self.redirect(f"/resource/{resource.name}"); return
             if path=="/resource/add":
                 register_resource(
                     (f.get("name") or [""])[0].strip(),

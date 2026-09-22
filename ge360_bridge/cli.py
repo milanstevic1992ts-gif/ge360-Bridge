@@ -53,6 +53,7 @@ from .diagnostics import diagnose_resource
 from .doctor import connection_doctor
 from .audit import list_events
 from .metrics import collect_snapshot, query_series
+from .discovery import discover_backends, import_discovered_backend
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -376,6 +377,29 @@ def cmd_resource_list(_: argparse.Namespace) -> None:
     print(json.dumps({"resources": list_resources()}, indent=2))
 
 
+def cmd_resource_discover(args: argparse.Namespace) -> None:
+    report = discover_backends(
+        ports=args.port or None,
+        host=args.host,
+        scheme=args.scheme,
+        timeout=args.timeout,
+    )
+    print(json.dumps(report, indent=2))
+
+
+def cmd_resource_import(args: argparse.Namespace) -> None:
+    must_root()
+    resource = import_discovered_backend(
+        host=args.host,
+        target_port=args.target_port,
+        scheme=args.scheme,
+        bridge_port=args.bridge_port,
+        timeout=args.timeout,
+    )
+    reload_runtime()
+    print(json.dumps(resource.__dict__, indent=2))
+
+
 def cmd_health_check(args: argparse.Namespace) -> None:
     resources = list_resources()
     if args.resource:
@@ -576,6 +600,21 @@ def parser() -> argparse.ArgumentParser:
 
     r = sub.add_parser("resource-remove"); r.add_argument("name"); r.set_defaults(func=cmd_resource_remove)
     r = sub.add_parser("resource-list"); r.set_defaults(func=cmd_resource_list)
+
+    r = sub.add_parser("resource-discover", help="Rileva backend GE360 locali tramite /.well-known/ge360")
+    r.add_argument("--port", type=int, action="append", default=[], help="Porta loopback da verificare; ripetibile")
+    r.add_argument("--host", default="127.0.0.1", choices=["127.0.0.1","localhost","::1"])
+    r.add_argument("--scheme", default="http", choices=["http","https"])
+    r.add_argument("--timeout", type=float, default=0.6)
+    r.set_defaults(func=cmd_resource_discover)
+
+    r = sub.add_parser("resource-import", help="Importa una proposta discovery nel Resource Registry")
+    r.add_argument("target_port", type=int)
+    r.add_argument("--bridge-port", type=int)
+    r.add_argument("--host", default="127.0.0.1", choices=["127.0.0.1","localhost","::1"])
+    r.add_argument("--scheme", default="http", choices=["http","https"])
+    r.add_argument("--timeout", type=float, default=1.0)
+    r.set_defaults(func=cmd_resource_import)
 
     h = sub.add_parser("health-check")
     h.add_argument("resource", nargs="?", help="Nome Resource; senza nome controlla tutte")

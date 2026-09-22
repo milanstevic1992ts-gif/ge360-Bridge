@@ -1,46 +1,26 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.11 — Fase 9 completata: Metriche e grafici**. La Fase 10 è la prossima e non è ancora stata avviata.
+Versione corrente: **v0.12 — Fase 10: Resource Launcher**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## Metriche
+## GE360 HUB
 
-Campionamento ogni 60 secondi con retention 35 giorni.
-
-```text
-RX / TX
-handshake
-latenza
-uptime
-errori
-connessioni
-```
-
-Finestre:
+Da un device collegato al Bridge:
 
 ```text
-1h · 24h · 7d · 30d
+http://10.88.0.1:8788/hub
 ```
 
-## CLI
-
-```bash
-ge360-bridge metrics --window 24h
-ge360-bridge metrics --window 7d --resource rilievi
-```
-
-## Dashboard
-
-```text
-http://127.0.0.1:8789/metrics
-```
+Il device vede solamente le Resource autorizzate dalle proprie ACL e gruppi.
 
 API:
 
 ```text
-GET /api/metrics?window=24h
+GET http://10.88.0.1:8788/v1/resources
 ```
+
+Le Resource HTTP/HTTPS hanno il pulsante **Apri**; quelle TCP mostrano l'endpoint.
 
 ## Aggiornamento
 
@@ -50,4 +30,4 @@ git pull
 sudo ./install.sh
 ```
 
-Vedi `docs/METRICS.md`.
+Vedi `docs/RESOURCE_LAUNCHER.md`.

@@ -203,9 +203,28 @@ Fuori scope Fase 9:
 
 Criterio di chiusura: test delta/aggregazione/retention/permessi e CI verdi.
 
-## Fase 10 — Resource Launcher — PROSSIMA, NON AVVIATA
+## Fase 10 — Resource Launcher — CORRENTE
 
-Home GE360 con le applicazioni accessibili al dispositivo.
+Obiettivo: offrire a ogni device una home GE360 con soltanto le Resource che può realmente usare.
+
+Scope obbligatorio:
+- HUB su http://10.88.0.1:8788/hub;
+- API device-facing /v1/resources;
+- identificazione tramite peer VPN registrato e attivo;
+- ACL effettive device/gruppi;
+- Resource non autorizzate completamente escluse;
+- card con icona, descrizione e stato Health Engine;
+- pulsante Apri per HTTP/HTTPS;
+- endpoint testuale per TCP;
+- launcher_url nel /v1/status e pairing v2;
+- nessun segreto device nel markup/payload.
+
+Fuori scope Fase 10:
+- SDK Android;
+- VPNService/reconnect;
+- backend auto-discovery.
+
+Criterio di chiusura: test ACL/launcher/segreti e CI verdi.
 
 ## Fase 11 — Frontend SDK Android
 

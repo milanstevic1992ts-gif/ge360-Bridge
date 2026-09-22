@@ -18,6 +18,7 @@ from .core import (
 from .health import check_resources
 from .audit import init_db, write_event
 from .metrics import collect_snapshot, init_db as init_metrics_db
+from .launcher import launcher_payload, render_hub, resources_for_launcher
 
 BIND_HOST = "10.88.0.1"
 HEALTH_PORT = 8788
@@ -100,46 +101,48 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
     first = request.split(b"\r\n", 1)[0].decode("ascii", "replace")
     parts = first.split()
-    path = parts[1] if len(parts) >= 2 else "/"
-    if path not in ("/", "/healthz", "/v1/status"):
+    request_target = parts[1] if len(parts) >= 2 else "/"
+    path = request_target.split("?", 1)[0]
+    content_type = "application/json"
+    if path not in ("/", "/healthz", "/v1/status", "/v1/resources", "/hub"):
         body = json.dumps({"ok": False, "error": "not_found"}).encode()
         status = "404 Not Found"
     else:
         device = active_devices[peer_ip]
         effective = effective_resources_for_device(device, resources_all, groups)
         health_results = await asyncio.to_thread(check_resources, effective)
-        health_by_name = {h["name"]: h for h in health_results}
-        resources = [
-            {
-                "name": r["name"],
-                "icon": r.get("icon","server"),
-                "description": r.get("description",""),
-                "protocol": r.get("protocol","tcp"),
-                "bridge_port": r["bridge_port"],
-                "url": f"{r.get('protocol','tcp')}://{BIND_HOST}:{r['bridge_port']}",
-                "health": health_by_name.get(r["name"]),
-            }
-            for r in effective
-        ]
+        resources = resources_for_launcher(
+            device,
+            resources=resources_all,
+            groups=groups,
+            health_results=health_results,
+        )
         memberships = [
             g["name"] for g in groups
             if g.get("enabled", True) and device["device_id"] in g.get("device_ids", [])
         ]
-        body = json.dumps({
-            "ok": True,
-            "bridge": "GE360 Universal Bridge",
-            "schema": "ge360-bridge-status/v1",
-            "device": device["name"],
-            "device_id": device["device_id"],
-            "vpn_ip": peer_ip,
-            "groups": memberships,
-            "resources": resources,
-            "services": [{"name": r["name"], "url": r["url"]} for r in resources],
-        }).encode()
+        if path == "/hub":
+            body = render_hub(device, resources).encode()
+            content_type = "text/html; charset=utf-8"
+        elif path == "/v1/resources":
+            body = json.dumps(launcher_payload(device, resources)).encode()
+        else:
+            body = json.dumps({
+                "ok": True,
+                "bridge": "GE360 Universal Bridge",
+                "schema": "ge360-bridge-status/v1",
+                "device": device["name"],
+                "device_id": device["device_id"],
+                "vpn_ip": peer_ip,
+                "groups": memberships,
+                "resources": resources,
+                "services": [{"name": r["name"], "url": r["url"]} for r in resources],
+                "launcher_url": f"http://{BIND_HOST}:{HEALTH_PORT}/hub",
+            }).encode()
         status = "200 OK"
 
     writer.write(
-        f"HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode()
+        f"HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {len(body)}\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n".encode()
         + body
     )
     await writer.drain()

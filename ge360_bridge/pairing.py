@@ -306,6 +306,7 @@ def consume_enrollment(enrollment_id: str, token: str, public_key: str) -> dict[
         "device_token": app_token,
         "bridge_ip": "10.88.0.1",
         "health_url": "http://10.88.0.1:8788/v1/status",
+        "launcher_url": "http://10.88.0.1:8788/hub",
         "wireguard": {
             "server_public_key": server_public_key(),
             "endpoint": env.get("PUBLIC_ENDPOINT", "CHANGE_ME:51820"),

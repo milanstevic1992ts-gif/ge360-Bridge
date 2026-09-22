@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.10 — Fase 8: Audit Log**.
+Versione corrente: **v0.10 — Fase 8 completata: Audit Log**. La Fase 9 è la prossima e non è ancora stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

@@ -151,7 +151,7 @@ Fuori scope Fase 7:
 
 Criterio di chiusura: test dedicato per ogni categoria e CI verde.
 
-## Fase 8 — Audit log — CORRENTE
+## Fase 8 — Audit log — COMPLETATA
 
 Obiettivo: conservare uno storico tecnico del Bridge senza salvare payload delle applicazioni.
 
@@ -177,7 +177,7 @@ Fuori scope Fase 8:
 
 Criterio di chiusura: test storage/filtri/privacy/ACL e CI verdi.
 
-## Fase 9 — Metriche e grafici
+## Fase 9 — Metriche e grafici — PROSSIMA, NON AVVIATA
 
 RX/TX, latenza, handshake, uptime, errori e connessioni.
 

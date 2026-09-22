@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.14 — Fase 12: Connessione automatica Android**.
+Versione corrente: **v0.14 — Fase 12 completata: Connessione automatica Android**. La Fase 13 è la prossima e non è ancora stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
@@ -36,7 +36,7 @@ Se Android richiede il consenso VPN, usa `ge360.vpnPermissionIntent()` e passa l
 
 ## Fase successiva
 
-L'auto-discovery backend `/.well-known/ge360` appartiene alla Fase 13 e non è stato implementato.
+La Fase 13 — Auto discovery backend è la prossima e non è stata avviata. `/.well-known/ge360` non è presente nel codice della Fase 12.
 
 Vedi:
 

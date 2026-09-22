@@ -255,7 +255,7 @@ Fuori scope Fase 11:
 
 Criterio di chiusura: CI Python verde + CI Android verde e test parser/configurazione.
 
-## Fase 12 — Connessione automatica Android — CORRENTE
+## Fase 12 — Connessione automatica Android — COMPLETATA
 
 Obiettivo: trasformare i contratti Android della Fase 11 in una connessione WireGuard realmente utilizzabile e ripristinabile dalle APK.
 
@@ -289,7 +289,7 @@ Fuori scope Fase 12:
 
 Criterio di chiusura: CI Python verde + CI Android verde, configurazione accettata dal parser WireGuard ufficiale e nessuna funzione Fase 13 anticipata.
 
-## Fase 13 — Auto discovery backend
+## Fase 13 — Auto discovery backend — PROSSIMA, NON AVVIATA
 
 Endpoint /.well-known/ge360 e proposta automatica di nuovi backend.
 

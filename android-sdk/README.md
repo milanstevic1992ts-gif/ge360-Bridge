@@ -1,4 +1,4 @@
-# GE360 Bridge Android SDK — Fase 12
+# GE360 Bridge Android SDK — Fase 12 completata
 
 Modulo:
 
@@ -72,4 +72,4 @@ Private key e PSK vengono persistite solo cifrate con Android Keystore.
 
 La Fase 12 non implementa `/.well-known/ge360` né auto-discovery backend.
 
-La Fase 13 resta separata.
+La Fase 13 resta separata e non è stata avviata.

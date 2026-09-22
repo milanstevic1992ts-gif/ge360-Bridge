@@ -1,4 +1,4 @@
-# Connessione automatica Android — Fase 12
+# Connessione automatica Android — Fase 12 — COMPLETATA
 
 La Fase 12 completa il lato Android del GE360 Universal Bridge usando il backend WireGuard ufficiale.
 
@@ -151,8 +151,21 @@ Il modulo include una configurazione che nega il cleartext di default e consente
 
 Il traffico HTTP verso il Bridge viaggia comunque dentro WireGuard cifrato.
 
+## Chiusura Fase 12
+
+Criteri verificati:
+
+- CI Python verde;
+- CI Android verde;
+- test `testDebugUnitTest` verde;
+- AAR WireGuard embeddabile `1.0.20260102` risolto da Maven Central;
+- configurazione GE360 accettata dal parser WireGuard ufficiale;
+- reconnect/backoff/stati testati;
+- private key e PSK persistite solo cifrate;
+- nessuna funzione Fase 13 introdotta.
+
 ## Fuori scope
 
 La Fase 12 non effettua backend auto-discovery e non interroga `/.well-known/ge360`.
 
-Questa funzione appartiene alla Fase 13.
+Questa funzione appartiene alla Fase 13, non avviata.

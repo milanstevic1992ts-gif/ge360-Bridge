@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.4 — Fase 2: Gruppi e ACL semplificate**.
+Versione corrente: **v0.4 — Fase 2 completata: Gruppi e ACL semplificate**. La Fase 3 è la prossima e non è ancora stata avviata.
 
 La fonte di verità è `docs/ROADMAP.md`. Non vengono anticipate funzioni delle fasi successive.
 

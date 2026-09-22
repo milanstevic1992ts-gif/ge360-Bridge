@@ -17,7 +17,7 @@ WireGuard, rete privata 10.88.0.0/24, ACL per device, proxy TCP locale, firewall
 
 device_id stabile, metadati, rename, enable/disable, scadenza, note, tag e migrazione compatibile dei device esistenti.
 
-## Fase 2 — Gruppi e ACL semplificate — CORRENTE
+## Fase 2 — Gruppi e ACL semplificate — COMPLETATA
 
 Obiettivo: amministrare l'accesso ai servizi tramite gruppi senza perdere le ACL dirette esistenti.
 
@@ -47,7 +47,7 @@ Fuori scope Fase 2:
 
 Criterio di chiusura: test e CI verdi, upgrade da v0.3 senza perdita di device, servizi o ACL dirette, e verifica precedenza deny > allow diretto > gruppo > nessun accesso.
 
-## Fase 3 — Pairing sicuro v2
+## Fase 3 — Pairing sicuro v2 — PROSSIMA, NON AVVIATA
 
 Token monouso, TTL, private key generata sul client, protezione replay e invalidazione dopo enrollment.
 

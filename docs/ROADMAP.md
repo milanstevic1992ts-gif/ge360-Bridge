@@ -226,9 +226,34 @@ Fuori scope Fase 10:
 
 Criterio di chiusura: test ACL/launcher/segreti e CI verdi.
 
-## Fase 11 — Frontend SDK Android — PROSSIMA, NON AVVIATA
+## Fase 11 — Frontend SDK Android — CORRENTE
 
-Modulo riutilizzabile per scan QR, enrollment, VPN, health, discovery e diagnostica.
+Obiettivo: fornire un modulo Android riutilizzabile per integrare GE360 Bridge senza duplicare protocolli nelle singole APK.
+
+Scope obbligatorio:
+- modulo android-sdk/ge360-bridge-android;
+- decode QR da Bitmap;
+- parser pairing v2;
+- enrollment HTTPS con certificate pinning;
+- private key mai inviata/loggata;
+- WireGuardKeyProvider riutilizzabile;
+- WireGuardConfig;
+- contratto VpnController e ConnectionState;
+- BridgeSession;
+- client status/health;
+- Resource discovery /v1/resources;
+- diagnostica SDK leggera;
+- redazione token/PSK/private key nei toString;
+- unit test Kotlin;
+- workflow GitHub Android che compila il modulo.
+
+Fuori scope Fase 11:
+- implementazione VpnService automatica;
+- reconnect Android;
+- persistenza automatica tunnel;
+- backend auto-discovery.
+
+Criterio di chiusura: CI Python verde + CI Android verde e test parser/configurazione.
 
 ## Fase 12 — Connessione automatica Android
 

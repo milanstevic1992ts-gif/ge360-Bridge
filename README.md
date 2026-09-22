@@ -1,33 +1,38 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.12 — Fase 10 completata: Resource Launcher**. La Fase 11 è la prossima e non è ancora stata avviata.
+Versione corrente: **v0.13 — Fase 11: Frontend SDK Android**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## GE360 HUB
+## Android SDK
 
-Da un device collegato al Bridge:
-
-```text
-http://10.88.0.1:8788/hub
-```
-
-Il device vede solamente le Resource autorizzate dalle proprie ACL e gruppi.
-
-API:
+Modulo riutilizzabile:
 
 ```text
-GET http://10.88.0.1:8788/v1/resources
+android-sdk/ge360-bridge-android
 ```
 
-Le Resource HTTP/HTTPS hanno il pulsante **Apri**; quelle TCP mostrano l'endpoint.
+Include:
 
-## Aggiornamento
+- QR scanner/parser v2;
+- enrollment con TLS certificate pinning;
+- WireGuard config;
+- `WireGuardKeyProvider`;
+- `VpnController`;
+- stato connessione;
+- status/health;
+- Resource discovery;
+- diagnostica SDK.
 
-```bash
-cd ~/ge360-Bridge
-git pull
-sudo ./install.sh
+La connessione Android automatica tramite VpnService appartiene alla Fase 12.
+
+## CI
+
+La repository ora ha anche una workflow **Android SDK** che compila e testa il modulo.
+
+Vedi:
+
+```text
+android-sdk/README.md
+docs/ANDROID_SDK.md
 ```
-
-Vedi `docs/RESOURCE_LAUNCHER.md`.

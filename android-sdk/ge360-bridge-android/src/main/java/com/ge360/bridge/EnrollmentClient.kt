@@ -60,10 +60,10 @@ class EnrollmentClient(
 
         val root = JSONObject(text)
         require(root.optBoolean("ok", false)) { root.optString("error", "Enrollment fallito") }
-        return parseResult(root.getJSONObject("result"))
+        return parseResult(root.getJSONObject("result"), invitation)
     }
 
-    private fun parseResult(result: JSONObject): EnrollmentResult {
+    private fun parseResult(result: JSONObject, invitation: PairingInvitation): EnrollmentResult {
         val wg = result.getJSONObject("wireguard")
         return EnrollmentResult(
             deviceId = result.getString("device_id"),
@@ -79,7 +79,9 @@ class EnrollmentClient(
             allowedIps = wg.optString("allowed_ips", "10.88.0.1/32"),
             persistentKeepalive = wg.optInt("persistent_keepalive", 25),
             runtimeSync = result.optBoolean("runtime_sync", false),
-            resources = parseResources(result.optJSONArray("resources") ?: JSONArray())
+            resources = parseResources(result.optJSONArray("resources") ?: JSONArray()),
+            controlUrl = URL(invitation.enrollmentUrl).let { "${it.protocol}://${it.authority}" },
+            tlsCertSha256 = invitation.tlsCertSha256
         )
     }
 

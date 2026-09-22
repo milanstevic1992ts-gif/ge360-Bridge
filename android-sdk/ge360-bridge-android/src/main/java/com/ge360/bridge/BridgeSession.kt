@@ -44,6 +44,34 @@ class BridgeSession(
         vpnController.start(provisioned.wireGuardConfig)
     }
 
+    fun connectPreferP2P(
+        provisioned: ProvisionedBridge,
+        traversalClient: TraversalClient = TraversalClient()
+    ): TraversalPlan? {
+        val plan = try {
+            traversalClient.prepare(provisioned.enrollment)
+        } catch (_: Exception) {
+            vpnController.start(provisioned.wireGuardConfig)
+            return null
+        }
+        val p2pConfig = provisioned.wireGuardConfig.copy(
+            endpoint = plan.recommendedEndpoint,
+            listenPort = plan.clientCandidate.localPort
+        )
+        vpnController.start(p2pConfig)
+        return plan
+    }
+
+    fun traversalStatus(
+        provisioned: ProvisionedBridge,
+        plan: TraversalPlan,
+        traversalClient: TraversalClient = TraversalClient()
+    ): TraversalStatus = traversalClient.status(provisioned.enrollment, plan.sessionId)
+
+    fun fallbackToDirect(provisioned: ProvisionedBridge) {
+        vpnController.start(provisioned.wireGuardConfig)
+    }
+
     fun disconnect() = vpnController.stop()
     fun connectionState(): ConnectionState = vpnController.state()
     fun status(): JSONObjectFacade = JSONObjectFacade(apiClient.status().toString())

@@ -65,10 +65,12 @@ WG_PORT=$WG_PORT
 PUBLIC_ENDPOINT=CHANGE_ME:$WG_PORT
 CLIENT_DNS=
 PAIRING_PORT=$PAIRING_PORT
+TRAVERSAL_ENABLED=true
 ENV
 else
   echo "Configurazione esistente preservata: $STATE_DIR/bridge.env"
   grep -q '^PAIRING_PORT=' "$STATE_DIR/bridge.env" || echo "PAIRING_PORT=$PAIRING_PORT" >> "$STATE_DIR/bridge.env"
+  grep -q '^TRAVERSAL_ENABLED=' "$STATE_DIR/bridge.env" || echo "TRAVERSAL_ENABLED=true" >> "$STATE_DIR/bridge.env"
 fi
 
 [[ -e "$STATE_DIR/services.json" ]] || printf '[]\n' > "$STATE_DIR/services.json"
@@ -175,7 +177,7 @@ if [[ -n "$WAN4" ]]; then
 fi
 
 say "Installazione completata"
-echo "Versione: GE360 Bridge v0.20 - Fase 18 NAT Discovery"
+echo "Versione: GE360 Bridge v0.21 - Fase 19 NAT Traversal P2P"
 echo "Dashboard locale: http://127.0.0.1:8789"
 echo "Dashboard via Bridge: http://10.88.0.1:8789"
 echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
@@ -194,4 +196,5 @@ echo "Self-healing: ge360-bridge self-heal-status | sudo ge360-bridge self-heal-
 echo "Backup: sudo ge360-bridge backup-list | sudo ge360-bridge backup-create"
 echo "Update Engine: sudo ge360-bridge update-status | sudo ge360-bridge update-run https://... --sha256 <SHA256>"
 echo "NAT Discovery: ge360-bridge nat-discover"
+echo "P2P Traversal: sudo ge360-bridge p2p-status"
 echo "I vecchi comandi service-* restano alias compatibili."

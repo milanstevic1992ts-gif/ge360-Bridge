@@ -32,6 +32,7 @@ from .audit import count_events, list_events
 from .metrics import query_series
 from .discovery import discover_backends, import_discovered_backend
 from .nat_discovery import discover_nat
+from .p2p import p2p_status
 
 PORT = 8789
 STATE_DIR = Path(os.environ.get("GE360_BRIDGE_STATE_DIR", "/etc/ge360-bridge"))
@@ -312,8 +313,8 @@ def dashboard_page(error:str="")->str:
         sv.append(f"<tr><td><b>{esc(service.get('icon','server'))} {esc(service['name'])}</b><div class='m'>{esc(service.get('description',''))}</div></td><td><span class='dot {dot_class}'></span><b>{esc(state)}</b><div class='m'>{esc(h.get('latency_ms') if h.get('latency_ms') is not None else '—')} ms</div><div class='m'>{esc(' · '.join(details))}</div>{error_html}</td><td><b>{esc(service.get('protocol','tcp').upper())}</b><div class='m mono'>{esc(service['bridge_url'])}</div><div class='m mono'>{esc(service['target'])}</div><div class='m'>health: {esc(service.get('health_url') or '—')} · timeout {esc(service.get('timeout_seconds',2.0))}s</div></td><td>{'<br>'.join(esc(x) for x in access) or '—'}</td><td><a class='btn small' href='/resource/{esc(service['name'])}'>Gestisci</a></td></tr>")
     service_checks="".join(f"<label><input type='checkbox' name='service' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in services) or "—"
     group_checks="".join(f"<label><input type='checkbox' name='group' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in groups if x.get("enabled",True)) or "—"
-    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 18 · NAT Discovery</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
-<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>Resource ONLINE</div></div><div class='card'><div class='n'>{c.get('degraded_services',0)}</div><div class='m'>Resource DEGRADED</div></div><div class='card'><div class='n'>v0.20</div><div class='m'>Bridge</div></div></div>
+    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 19 · NAT Traversal P2P</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
+<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>Resource ONLINE</div></div><div class='card'><div class='n'>{c.get('degraded_services',0)}</div><div class='m'>Resource DEGRADED</div></div><div class='card'><div class='n'>v0.21</div><div class='m'>Bridge</div></div></div>
 <div class='panel'><h2>Dispositivi</h2><div class='tw'><table><tr><th>Device</th><th>Stato</th><th>Gruppi</th><th>Accesso effettivo</th><th>Handshake</th><th></th></tr>{''.join(dr) or '<tr><td colspan=6>Nessun device</td></tr>'}</table></div></div>
 <div class='panel'><h2>Gruppi</h2><div class='tw'><table><tr><th>Gruppo</th><th>Device</th><th>Resource</th><th>Stato</th><th></th></tr>{''.join(gr) or '<tr><td colspan=5>Nessun gruppo</td></tr>'}</table></div></div>
 <div class='panel'><h2>Audit Log</h2><div class='m'>Eventi persistenti: {count_events()}</div><div class='tw'><table><tr><th>Ora</th><th>Evento</th><th>Device</th><th>Resource</th><th>Risultato</th></tr>{''.join(f"<tr><td class='mono'>{esc(e.get('timestamp'))}</td><td>{esc(e.get('event'))}</td><td>{esc(e.get('device_name') or e.get('device_id') or '—')}</td><td>{esc(e.get('resource') or '—')}</td><td>{esc(e.get('result') or e.get('error') or '—')}</td></tr>" for e in list_events(limit=20)) or '<tr><td colspan=5>Nessun evento</td></tr>'}</table></div><p><a class='btn' href='/api/audit'>JSON audit</a></p></div>
@@ -321,7 +322,7 @@ def dashboard_page(error:str="")->str:
 <div class='panel'><h2>Registra Resource</h2><form method='post' action='/resource/add'><div class='forms'><div class='box'><label>Nome</label><input name='name' placeholder='rilievi' required><label>Icona</label><input name='icon' value='server'><label>Descrizione</label><textarea name='description'></textarea><label>Protocollo</label><select name='protocol'><option value='http'>HTTP</option><option value='https'>HTTPS</option><option value='tcp'>TCP</option></select></div><div class='box'><label>Bridge port</label><input type='number' name='bridge_port' min='1' max='65535' required><label>Target host</label><input name='target_host' value='127.0.0.1' required><label>Target port</label><input type='number' name='target_port' min='1' max='65535' required><label>Health URL/path opzionale</label><input name='health_url' placeholder='/healthz'><label>Timeout secondi</label><input type='number' name='timeout' min='0.1' max='30' step='0.1' value='2.0'><label>Systemd unit opzionale</label><input name='systemd_unit' placeholder='ge360-rilievi.service'><label><input type='checkbox' name='self_heal' value='1' style='width:auto'> abilita self-healing</label><div class='m'>Solo backend applicativi. Limite globale per Resource: 3 restart / 10 minuti.</div><p><button class='primary'>Registra Resource</button></p></div></div></form></div>
 <div class='panel forms'><div class='box'><h3>Crea gruppo</h3><form method='post' action='/group/create'><label>Nome</label><input name='name' placeholder='amministratori' required><label>Descrizione</label><textarea name='description'></textarea><p><button class='primary'>Crea gruppo</button></p></form></div>
 <div class='box'><h3>Pairing sicuro v2</h3><form method='post' action='/device/add'><label>Nome device</label><input name='name' required><label>Tipo</label><select name='device_type'><option>android</option><option>tablet</option><option>linux</option><option>windows</option><option>server</option><option selected>unknown</option></select><label>Proprietario</label><input name='owner'><label>Tag</label><input name='tags'><label>Scadenza device</label><input type='date' name='expires_at'><label>Gruppi iniziali</label><div class='checks'>{group_checks}</div><label>TTL token</label><select name='ttl'><option value='300'>5 minuti</option><option value='600' selected>10 minuti</option><option value='1800'>30 minuti</option><option value='86400'>24 ore</option></select><p><button class='primary'>Genera QR v2 monouso</button></p></form></div></div>
-<div class='panel'><b>Launcher device</b><div class='mono'>http://10.88.0.1:8788/hub</div><div class='m'>Visibile ai device VPN e filtrato dalle ACL effettive.</div></div><div class='panel row'><div><a class='btn' href='/discovery'>Backend discovery</a> <a class='btn' href='/nat'>NAT discovery</a> <a class='btn' href='/metrics'>Metriche</a> <a class='btn' href='/api/status'>JSON</a></div><a class='btn' href='/logout'>Esci</a></div></div>"""
+<div class='panel'><b>Launcher device</b><div class='mono'>http://10.88.0.1:8788/hub</div><div class='m'>Visibile ai device VPN e filtrato dalle ACL effettive.</div></div><div class='panel row'><div><a class='btn' href='/discovery'>Backend discovery</a> <a class='btn' href='/nat'>NAT discovery</a> <a class='btn' href='/p2p'>P2P traversal</a> <a class='btn' href='/metrics'>Metriche</a> <a class='btn' href='/api/status'>JSON</a></div><a class='btn' href='/logout'>Esci</a></div></div>"""
     return shell(body,refresh=True)
 
 
@@ -375,6 +376,27 @@ def nat_page()->str:
 <div class='panel'><h2>Osservazioni STUN</h2><div class='tw'><table><tr><th>Server</th><th>Destinazione</th><th>Mapped endpoint</th></tr>{''.join(rows) or '<tr><td colspan=3>Nessuna risposta STUN valida.</td></tr>'}</table></div></div>
 <div class='panel'><p><a class='btn' href='/api/nat'>JSON NAT discovery</a></p><div class='m'>STUN usa una socket UDP diagnostica: la porta mapped mostrata NON dimostra che WireGuard 51820 sia raggiungibile. Fase 19 traversal non avviata.</div></div></div>"""
     return shell(body,"NAT Discovery")
+
+
+def p2p_page()->str:
+    report=p2p_status()
+    candidates=report.get("server_candidates",[])
+    sessions=report.get("sessions",[])
+    candidate_rows="".join(
+        f"<tr><td>{esc(x.get('kind',''))}</td><td class='mono'>{esc(x.get('endpoint',''))}</td><td>{esc(x.get('priority',''))}</td></tr>"
+        for x in candidates
+    )
+    session_rows="".join(
+        f"<tr><td class='mono'>{esc(x.get('session_id',''))}</td><td>{esc(x.get('device_name',''))}</td><td>{esc(x.get('status',''))}</td><td class='mono'>{esc((x.get('client_candidate') or {}).get('endpoint',''))}</td><td>{esc(x.get('attempts',0))}</td><td>{esc(x.get('error') or '—')}</td></tr>"
+        for x in sessions
+    )
+    limits="<br>".join(esc(x) for x in report.get("limitations",[]))
+    body=f"""<div class='w'><div class='top'><div><h1>NAT Traversal P2P</h1><div class='m'>Fase 19 · runtime WireGuard · nessun relay</div></div><a class='btn' href='/'>← Dashboard</a></div>
+<div class='grid'><div class='card'><div class='n'>{esc('ON' if report.get('enabled') else 'OFF')}</div><div class='m'>Traversal</div></div><div class='card'><div class='n'>{len(candidates)}</div><div class='m'>candidati server</div></div><div class='card'><div class='n'>{len(sessions)}</div><div class='m'>sessioni runtime</div></div><div class='card'><div class='n'>NO</div><div class='m'>relay Fase 20</div></div></div>
+<div class='panel'><h2>Candidati server</h2><div class='tw'><table><tr><th>Tipo</th><th>Endpoint</th><th>Priorità</th></tr>{candidate_rows or '<tr><td colspan=3>Nessun candidato server disponibile.</td></tr>'}</table></div></div>
+<div class='panel'><h2>Sessioni</h2><div class='tw'><table><tr><th>Sessione</th><th>Device</th><th>Stato</th><th>Candidato client</th><th>Tentativi</th><th>Errore</th></tr>{session_rows or '<tr><td colspan=6>Nessuna sessione P2P runtime.</td></tr>'}</table></div></div>
+<div class='panel'><p><a class='btn' href='/api/p2p'>JSON P2P</a></p><div class='m'>{limits}</div><div class='m'>Le sessioni durano {esc(report.get('session_ttl_seconds'))} secondi e non persistono token o private key. Il peer endpoint viene modificato solo a runtime.</div></div></div>"""
+    return shell(body,"P2P Traversal")
 
 
 def sparkline_svg(values:list[float|int|None], width:int=320, height:int=74)->str:
@@ -566,6 +588,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_body(json.dumps(discover_backends(),indent=2),200,"application/json")
         elif path=="/api/nat":
             self.send_body(json.dumps(discover_nat(use_cache=True),indent=2),200,"application/json")
+        elif path=="/api/p2p":
+            self.send_body(json.dumps(p2p_status(),indent=2),200,"application/json")
+        elif path=="/p2p": self.send_body(p2p_page())
         elif path=="/nat": self.send_body(nat_page())
         elif path=="/discovery": self.send_body(discovery_page())
         elif path.startswith("/device/"): self.send_body(device_page(path.split("/",2)[2]))

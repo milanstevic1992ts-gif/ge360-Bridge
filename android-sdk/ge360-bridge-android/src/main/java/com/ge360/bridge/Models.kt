@@ -45,7 +45,9 @@ class EnrollmentResult(
     val allowedIps: String,
     val persistentKeepalive: Int,
     val runtimeSync: Boolean,
-    val resources: List<BridgeResource>
+    val resources: List<BridgeResource>,
+    val controlUrl: String = "",
+    val tlsCertSha256: String = ""
 ) {
     override fun toString(): String =
         "EnrollmentResult(deviceId=$deviceId, device=$device, vpnIp=$vpnIp, presharedKey=<redacted>, deviceToken=<redacted>, bridgeIp=$bridgeIp, runtimeSync=$runtimeSync)"
@@ -65,13 +67,16 @@ data class WireGuardConfig(
     val presharedKey: String,
     val endpoint: String,
     val allowedIps: String,
-    val persistentKeepalive: Int
+    val persistentKeepalive: Int,
+    val listenPort: Int = 0
 ) {
-    fun asText(): String = """
+    fun asText(): String {
+        val listenLine = if (listenPort in 1..65535) "ListenPort = $listenPort\n" else ""
+        return """
         [Interface]
         PrivateKey = $privateKey
         Address = $address/32
-
+        $listenLine
         [Peer]
         PublicKey = $serverPublicKey
         PresharedKey = $presharedKey
@@ -79,9 +84,37 @@ data class WireGuardConfig(
         AllowedIPs = $allowedIps
         PersistentKeepalive = $persistentKeepalive
     """.trimIndent()
+    }
 
-    override fun toString(): String = "WireGuardConfig(privateKey=<redacted>, address=$address, endpoint=$endpoint)"
+    override fun toString(): String = "WireGuardConfig(privateKey=<redacted>, address=$address, endpoint=$endpoint, listenPort=$listenPort)"
 }
+
+data class TraversalCandidate(
+    val ip: String,
+    val port: Int,
+    val localPort: Int,
+    val source: String = "stun"
+) {
+    val endpoint: String get() = if (ip.contains(":")) "[$ip]:$port" else "$ip:$port"
+}
+
+data class TraversalPlan(
+    val sessionId: String,
+    val status: String,
+    val recommendedEndpoint: String,
+    val fallbackEndpoint: String,
+    val expiresAt: Long,
+    val clientCandidate: TraversalCandidate,
+    val serverCandidates: List<String>
+)
+
+data class TraversalStatus(
+    val sessionId: String,
+    val status: String,
+    val attempts: Int,
+    val latestHandshake: Long,
+    val error: String?
+)
 
 data class ProvisionedBridge(
     val enrollment: EnrollmentResult,

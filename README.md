@@ -1,78 +1,95 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.20 — Fase 18 completata: NAT Discovery**. La Fase 19 — NAT Traversal P2P è la prossima e non è stata avviata.
+Versione corrente: **v0.21 — Fase 19: NAT Traversal P2P in verifica CI**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## NAT Discovery
+## NAT Traversal P2P
 
-GE360 Bridge può ora osservare la rete Internet del server senza modificare NAT o firewall.
+GE360 Bridge può tentare un handshake WireGuard diretto usando candidate exchange STUN.
 
-Comando:
+Lato server:
 
 ```bash
-ge360-bridge nat-discover
-```
-
-Il report include:
-
-```text
-IPv4 pubblico osservato via STUN
-mapped UDP endpoint diagnostico
-IPv6 globali
-WAN IPv4 router via UPnP read-only
-indizi CGNAT
-mapping behavior NAT
-filtering behavior quando verificabile via RFC 5780
+sudo ge360-bridge p2p-status
 ```
 
 Dashboard:
 
 ```text
-/nat
-/api/nat
+/p2p
+/api/p2p
 ```
 
-La classificazione evita di inventare un NAT type quando i dati non bastano. Con una sola destinazione STUN il tipo resta `UNKNOWN`; mapping che cambia tra destinazioni viene indicato come `SYMMETRIC_LIKE_MAPPING`, non come prova assoluta di NAT simmetrico.
-
-## Guardrail Fase 18
+Control API autenticata:
 
 ```text
-wireguard_port_inferred=false
-phase19_traversal_attempted=false
-port_mapping_changed=false
+POST /v3/traversal/prepare
+POST /v3/traversal/status
 ```
 
-La Fase 18 non esegue hole punching, non crea port forwarding e non modifica `PUBLIC_ENDPOINT`.
+Il control path riusa HTTPS pairing sulla porta 8790 e lo stesso certificate pinning del QR v2.
 
-## Server STUN
+## Android
 
-Default:
+Il SDK aggiunge:
+
+```kotlin
+val plan = session.connectPreferP2P(provisioned)
+```
+
+Il client scopre il proprio candidato STUN usando una porta locale stabile, poi avvia WireGuard con la stessa `ListenPort`.
+
+Se STUN/control falliscono prima del tentativo, il SDK usa automaticamente il direct endpoint originale.
+
+Stato successivo:
+
+```kotlin
+val status = session.traversalStatus(provisioned, plan)
+```
+
+Fallback manuale dopo un tentativo fallito:
+
+```kotlin
+session.fallbackToDirect(provisioned)
+```
+
+## Sicurezza
 
 ```text
-stun.cloudflare.com:3478
-stun.cloudflare.com:53
+AllowedIPs = 10.88.0.1/32
+session TTL = 90s
+rate limit = 6 prepare/min/device
+relay = false
+endpoint peer = runtime only
 ```
 
-Override CLI:
+Il Bridge non scrive il candidato in `devices.json` o `wg0.conf`.
 
-```bash
-ge360-bridge nat-discover --server stun.example.net:3478
-```
-
-oppure in `/etc/ge360-bridge/bridge.env`:
+Le sessioni redatte visibili a CLI/dashboard stanno soltanto in:
 
 ```text
-STUN_SERVERS=stun.example.net:3478,stun2.example.net:3478
+/run/ge360-bridge/p2p-sessions.json
 ```
 
-## Update Engine e backup
+e non contengono token, PSK o private key.
 
-Fase 17 Update Engine e Fase 16 Backup configurazione restano attivi e separati dalla diagnostica NAT.
+## Limite CGNAT
+
+STUN non fornisce signaling.
+
+Se server e client non hanno alcun control path HTTPS/IPv6/direct raggiungibile, Fase 19 non può scambiare i candidati e non può avviare il hole-punch.
+
+Il fallback relay appartiene alla **Fase 20** e non è stato introdotto.
+
+## NAT Discovery, Update e Backup
+
+Fase 18 NAT Discovery, Fase 17 Update Engine e Fase 16 Backup restano attive e separate.
 
 Vedi:
 
 ```text
+docs/P2P_TRAVERSAL.md
 docs/NAT_DISCOVERY.md
 docs/UPDATE_ENGINE.md
 docs/BACKUP_CONFIG.md

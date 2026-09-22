@@ -584,9 +584,56 @@ Chiusura verificata:
 - workflow Android non modificato e ultimo run su main verde;
 - nessun hole punching, port forwarding, modifica PUBLIC_ENDPOINT, relay o multi-server introdotto.
 
-## Fase 19 — NAT Traversal P2P — PROSSIMA, NON AVVIATA
+## Fase 19 — NAT Traversal P2P — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
 
-Tentativo di connessione WireGuard diretta tramite discovery/NAT traversal.
+Obiettivo: tentare una connessione WireGuard diretta tramite candidate exchange STUN e aggiornamento endpoint runtime, senza introdurre relay o port forwarding automatico.
+
+Scope:
+- modulo server ge360_bridge/p2p.py;
+- traversal configurabile tramite TRAVERSAL_ENABLED;
+- autenticazione device_id + device_token con confronto constant-time;
+- device attivo/non scaduto obbligatorio;
+- candidato client IP globale + porta + local_port stabile;
+- candidate server da PUBLIC_ENDPOINT configurato e IPv6 globale;
+- nessuna inferenza della porta WireGuard dalla mapped port STUN diagnostica Fase 18;
+- sessioni P2P TTL 90 secondi;
+- rate limit 6 prepare/minuto/device;
+- session ID random;
+- mirror sessioni redatto root-only in /run/ge360-bridge;
+- nessun token, PSK o public key peer nel mirror runtime;
+- endpoint HTTPS /v3/traversal/prepare e /v3/traversal/status sulla porta pairing 8790;
+- stesso certificate pinning pairing v2 lato Android;
+- modifica endpoint peer soltanto runtime tramite wg set;
+- persistent keepalive temporaneo 5 durante punch e 25 dopo successo;
+- fino a 5 tentativi con traffico minimo WireGuard e verifica latest-handshakes;
+- ripristino endpoint e keepalive runtime precedenti quando disponibili dopo fallimento;
+- nessuna modifica devices.json o wg0.conf;
+- audit P2P_PREPARED, P2P_SUCCEEDED e P2P_FAILED;
+- CLI p2p-status;
+- dashboard autenticata /p2p e /api/p2p;
+- Android STUN candidate discovery con porta locale 51821..51830;
+- Android WireGuardConfig con ListenPort opzionale persistito nello store cifrato;
+- Android connectPreferP2P con fallback direct automatico se la preparazione non parte;
+- Android traversalStatus e fallbackToDirect;
+- AllowedIPs invariato 10.88.0.1/32;
+- test server per auth, candidate, rate limit, handshake success/failure, restore endpoint, runtime mirror e no relay;
+- test Android per STUN RFC5389, XOR-MAPPED-ADDRESS, ListenPort, persistence e fallback direct.
+
+Limite esplicito:
+- STUN non è signaling;
+- un cold-start con entrambi i peer dietro CGNAT/NAT restrittivo e nessun control path HTTPS/IPv6/direct raggiungibile non può iniziare candidate exchange;
+- questo caso deve fallire in modo visibile e non essere dichiarato P2P riuscito.
+
+Fuori scope Fase 19:
+- relay;
+- TURN;
+- server rendezvous esterno;
+- port forwarding automatico UPnP/NAT-PMP/PCP;
+- modifica automatica PUBLIC_ENDPOINT;
+- endpoint peer persistenti;
+- multi-server control plane.
+
+Criterio di chiusura: CI Python e Android verdi, test handshake/fallback/guardrail verdi, Update Engine reale continua a costruire e passare preflight, nessun relay o funzione Fase 20 anticipata.
 
 ## Fase 20 — Relay opzionale
 

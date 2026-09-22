@@ -114,6 +114,7 @@ internal object TunnelConfigCodec {
             .put("endpoint", config.endpoint)
             .put("allowed_ips", config.allowedIps)
             .put("persistent_keepalive", config.persistentKeepalive)
+            .put("listen_port", config.listenPort)
             .toString()
 
     fun decode(text: String): WireGuardConfig {
@@ -125,7 +126,8 @@ internal object TunnelConfigCodec {
             presharedKey = root.getString("preshared_key"),
             endpoint = root.getString("endpoint"),
             allowedIps = root.getString("allowed_ips"),
-            persistentKeepalive = root.getInt("persistent_keepalive")
+            persistentKeepalive = root.getInt("persistent_keepalive"),
+            listenPort = root.optInt("listen_port", 0)
         )
     }
 }

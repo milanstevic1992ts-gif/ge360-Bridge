@@ -58,6 +58,7 @@ from .self_healing import run_self_heal, self_heal_status
 from .backup import create_backup, list_backups, restore_backup, verify_backup
 from .update_engine import apply_update, download_update, preflight_update, run_update, update_status, verify_update
 from .nat_discovery import discover_nat
+from .p2p import p2p_status
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -475,6 +476,11 @@ def cmd_nat_discover(args: argparse.Namespace) -> None:
     print(json.dumps(report, indent=2))
 
 
+def cmd_p2p_status(_: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps(p2p_status(), indent=2))
+
+
 def cmd_health_check(args: argparse.Namespace) -> None:
     resources = list_resources()
     if args.resource:
@@ -749,6 +755,9 @@ def parser() -> argparse.ArgumentParser:
     n.add_argument("--server", action="append", default=[], help="Server STUN host:port; ripetibile")
     n.add_argument("--timeout", type=float, default=1.2)
     n.set_defaults(func=cmd_nat_discover)
+
+    p2p = sub.add_parser("p2p-status", help="Fase 19: stato NAT Traversal P2P e sessioni runtime")
+    p2p.set_defaults(func=cmd_p2p_status)
 
     h = sub.add_parser("health-check")
     h.add_argument("resource", nargs="?", help="Nome Resource; senza nome controlla tutte")

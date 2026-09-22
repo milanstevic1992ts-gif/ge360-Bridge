@@ -83,7 +83,6 @@ if [[ -n "$CURRENT_ENDPOINT" && "$CURRENT_ENDPOINT" != CHANGE_ME:* ]]; then
 else
   KEEP_ENDPOINT=0
 fi
-
 IPV6="$(ip -6 -o addr show scope global 2>/dev/null | awk '$4 !~ /^fe80/ {sub(/\/.*/,"",$4); print $4; exit}')"
 UPNP_OUT="$(upnpc -s 2>/dev/null || true)"
 WAN4="$(printf '%s\n' "$UPNP_OUT" | sed -n 's/.*ExternalIPAddress = \([^ ]*\).*/\1/p' | head -n1)"

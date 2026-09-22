@@ -177,7 +177,7 @@ Fuori scope Fase 8:
 
 Criterio di chiusura: test storage/filtri/privacy/ACL e CI verdi.
 
-## Fase 9 — Metriche e grafici — CORRENTE
+## Fase 9 — Metriche e grafici — COMPLETATA
 
 Obiettivo: conservare e visualizzare serie temporali leggere del Bridge.
 
@@ -203,7 +203,7 @@ Fuori scope Fase 9:
 
 Criterio di chiusura: test delta/aggregazione/retention/permessi e CI verdi.
 
-## Fase 10 — Resource Launcher
+## Fase 10 — Resource Launcher — PROSSIMA, NON AVVIATA
 
 Home GE360 con le applicazioni accessibili al dispositivo.
 

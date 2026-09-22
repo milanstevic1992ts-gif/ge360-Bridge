@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.11 — Fase 9: Metriche e grafici**.
+Versione corrente: **v0.11 — Fase 9 completata: Metriche e grafici**. La Fase 10 è la prossima e non è ancora stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

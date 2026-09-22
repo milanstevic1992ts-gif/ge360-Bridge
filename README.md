@@ -1,70 +1,65 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.16 — Fase 14 completata: Linux Agent**. La Fase 15 — Self-healing è la prossima e non è stata avviata.
+Versione corrente: **v0.17 — Fase 15: Self-healing in verifica CI**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## Linux Agent
+## Self-healing controllato
 
-La Fase 14 aggiunge un Agent Linux leggero e read-only per host aggiuntivi.
+Il self-healing è disattivato per default e deve essere abilitato per singola Resource.
 
-Dati disponibili:
-
-- stato host;
-- Resource GE360 locali;
-- health;
-- indirizzi IP;
-- metriche CPU/load, memoria, disco e rete.
-
-Installazione separata su un host Linux:
+Configurazione:
 
 ```bash
-sudo ./install-agent.sh
+sudo ge360-bridge resource-update rilievi \
+  --systemd-unit ge360-rilievi.service \
+  --self-heal true
 ```
 
-API locale predefinita:
+Controllo senza eseguire restart:
+
+```bash
+sudo ge360-bridge self-heal-run --dry-run
+```
+
+Stato:
+
+```bash
+ge360-bridge self-heal-status
+```
+
+Regole principali:
 
 ```text
-http://127.0.0.1:8791
+trigger: OFFLINE / TIMEOUT
+limite: 3 restart / 10 minuti per Resource
+post-restart: health-check fino a ONLINE
 ```
 
-Snapshot locale:
+Il motore usa un lock esclusivo e uno stato persistente per impedire loop anche tra esecuzioni concorrenti.
 
-```bash
-sudo ge360-agent snapshot
+Timer:
+
+```text
+ge360-bridge-self-heal.timer
 ```
 
-Gli endpoint `/v1/*` richiedono Bearer token. Il bind predefinito resta loopback.
+## Linux Agent
 
-La Fase 14 **non** implementa self-healing, routing di Resource remote, NAT traversal o control plane multi-server.
+Il Linux Agent della Fase 14 resta read-only. Il self-healing della Fase 15 opera soltanto sul server Bridge locale e non riavvia host remoti.
 
 ## Backend auto discovery
 
-I backend GE360 dichiarano la propria identità tramite:
-
-```text
-GET /.well-known/ge360
-```
-
-Il discovery continua a essere confinato al loopback e non effettua scansioni LAN.
-
-## Android automatic connection
-
-Il modulo `ge360-bridge-android` mantiene WireGuard Android ufficiale, GoBackend, VpnService, reconnect, backoff, auto-restore e persistenza cifrata Android Keystore.
-
-Il tunnel resta limitato a:
-
-```text
-10.88.0.1/32
-```
+I backend GE360 continuano a dichiararsi tramite `/.well-known/ge360`; il discovery resta confinato al loopback.
 
 ## Limite di rete
 
-Linux Agent e auto-discovery non risolvono CGNAT. La connessione diretta da Internet continua a richiedere un endpoint pubblico raggiungibile; NAT discovery/traversal e relay restano nelle fasi future.
+Il self-healing non modifica CGNAT, NAT traversal o connettività remota.
 
 Vedi:
 
 ```text
+docs/SELF_HEALING.md
 docs/LINUX_AGENT.md
 docs/BACKEND_DISCOVERY.md
 ```

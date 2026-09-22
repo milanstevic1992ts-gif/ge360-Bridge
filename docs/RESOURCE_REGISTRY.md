@@ -25,6 +25,8 @@ Ogni Resource contiene:
   "target_port": 9888,
   "health_url": "/healthz",
   "timeout_seconds": 2.0,
+  "systemd_unit": "",
+  "self_heal_enabled": false,
   "allowed_devices": [],
   "denied_devices": [],
   "enabled": true
@@ -126,3 +128,22 @@ deny diretto
 ```
 
 I gruppi continuano a essere retrocompatibili con `allowed_services`, ma espongono anche `allowed_resources`.
+
+
+## Estensione Fase 15 — Self-healing
+
+Le Resource supportano due campi opzionali e retrocompatibili:
+
+- `systemd_unit`: unit backend `.service` gestita da systemd;
+- `self_heal_enabled`: abilita restart controllato quando Health Engine restituisce OFFLINE o TIMEOUT.
+
+Per le installazioni precedenti i default sono:
+
+```text
+systemd_unit=""
+self_heal_enabled=false
+```
+
+Il limite anti-loop è 3 restart per Resource in 10 minuti.
+
+Vedi `docs/SELF_HEALING.md`.

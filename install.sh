@@ -74,6 +74,7 @@ fi
 [[ -e "$STATE_DIR/devices.json" ]] || printf '[]\n' > "$STATE_DIR/devices.json"
 [[ -e "$STATE_DIR/groups.json" ]] || printf '[]\n' > "$STATE_DIR/groups.json"
 [[ -e "$STATE_DIR/enrollments.json" ]] || printf '[]\n' > "$STATE_DIR/enrollments.json"
+[[ -e "$STATE_DIR/self_heal_state.json" ]] || printf '{}\n' > "$STATE_DIR/self_heal_state.json"
 
 say "Migrazione registry Fasi 1-4 + Audit Fase 8"
 PYTHONPATH="$PY_DST" python3 - <<'PY'
@@ -112,6 +113,8 @@ install -m 644 "$ROOT_DIR/systemd/ge360-bridge-firewall.service" /etc/systemd/sy
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-boot-verify.service" /etc/systemd/system/ge360-bridge-boot-verify.service
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-expiry.service" /etc/systemd/system/ge360-bridge-expiry.service
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-expiry.timer" /etc/systemd/system/ge360-bridge-expiry.timer
+install -m 644 "$ROOT_DIR/systemd/ge360-bridge-self-heal.service" /etc/systemd/system/ge360-bridge-self-heal.service
+install -m 644 "$ROOT_DIR/systemd/ge360-bridge-self-heal.timer" /etc/systemd/system/ge360-bridge-self-heal.timer
 install -m 755 "$ROOT_DIR/scripts/apply-firewall.sh" /usr/local/sbin/ge360-bridge-firewall
 install -m 755 "$ROOT_DIR/scripts/boot-verify.sh" /usr/local/sbin/ge360-bridge-boot-verify
 
@@ -122,6 +125,7 @@ systemctl enable --now ge360-bridge.service
 systemctl enable --now ge360-bridge-dashboard.service
 systemctl enable --now ge360-bridge-enrollment.service
 systemctl enable --now ge360-bridge-expiry.timer
+systemctl enable --now ge360-bridge-self-heal.timer
 systemctl enable ge360-bridge-boot-verify.service
 
 ge360-bridge device-sync >/dev/null
@@ -166,7 +170,7 @@ if [[ -n "$WAN4" ]]; then
 fi
 
 say "Installazione completata"
-echo "Versione: GE360 Bridge v0.16 - Fase 14 Linux Agent"
+echo "Versione: GE360 Bridge v0.17 - Fase 15 Self-healing"
 echo "Dashboard locale: http://127.0.0.1:8789"
 echo "Dashboard via Bridge: http://10.88.0.1:8789"
 echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
@@ -181,4 +185,5 @@ echo "Launcher device: http://10.88.0.1:8788/hub"
 echo "Android SDK + VPN automatica: android-sdk/ge360-bridge-android"
 echo "Backend discovery: ge360-bridge resource-discover"
 echo "Linux Agent per host aggiuntivi: sudo ./install-agent.sh"
+echo "Self-healing: ge360-bridge self-heal-status | sudo ge360-bridge self-heal-run --dry-run"
 echo "I vecchi comandi service-* restano alias compatibili."

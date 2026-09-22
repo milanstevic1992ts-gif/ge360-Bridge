@@ -367,9 +367,39 @@ Chiusura verificata:
 - Agent read-only: nessun restart backend o modifica Resource remota;
 - nessun self-healing, NAT discovery, relay o control plane multi-server introdotto.
 
-## Fase 15 — Self-healing — PROSSIMA, NON AVVIATA
+## Fase 15 — Self-healing — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
 
-Restart controllato systemd con limiti anti-loop.
+Obiettivo: rilevare una Resource backend locale realmente non disponibile e tentare un restart systemd controllato senza creare loop di riavvio.
+
+Scope:
+- self-healing disattivato per default;
+- campi Resource retrocompatibili systemd_unit e self_heal_enabled;
+- validazione rigida delle unit systemd;
+- protezione delle unit infrastrutturali GE360 Bridge, WireGuard e Linux Agent;
+- trigger soltanto per stati Health Engine OFFLINE e TIMEOUT;
+- nessun restart per ONLINE, DEGRADED, UNAUTHORIZED o BAD_RESPONSE;
+- verifica LoadState=loaded prima del restart;
+- systemctl restart con argv separati;
+- limite rigido massimo 3 restart per Resource in 10 minuti;
+- tentativo registrato prima del restart e restart fallito conteggiato;
+- stato anti-loop persistente /etc/ge360-bridge/self_heal_state.json con permessi 0600;
+- lock esclusivo per impedire race tra timer e avvio manuale;
+- fino a 10 health-check post-restart, con successo soltanto quando la Resource torna ONLINE;
+- audit SELF_HEAL_RESTART, SELF_HEAL_BLOCKED e SELF_HEAL_RECOVERED;
+- CLI self-heal-run, self-heal-run --dry-run e self-heal-status;
+- configurazione self-healing dalla pagina Resource della dashboard;
+- timer systemd ogni 60 secondi;
+- test dedicati a compatibilità, stati trigger, restart, recupero e rate limit.
+
+Fuori scope Fase 15:
+- backup configurazione;
+- update engine;
+- gestione o restart di host remoti tramite Linux Agent;
+- NAT discovery/traversal;
+- relay;
+- control plane multi-server.
+
+Criterio di chiusura: CI Python verde, test anti-loop 3/10 minuti verde, installer aggiornato, timer systemd presente, compatibilità Resource Registry verificata e nessuna funzione Fase 16 anticipata.
 
 ## Fase 16 — Backup configurazione
 

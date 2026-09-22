@@ -54,6 +54,7 @@ from .doctor import connection_doctor
 from .audit import list_events
 from .metrics import collect_snapshot, query_series
 from .discovery import discover_backends, import_discovered_backend
+from .self_healing import run_self_heal, self_heal_status
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -342,6 +343,8 @@ def cmd_resource_add(args: argparse.Namespace) -> None:
         protocol=args.protocol,
         health_url=args.health_url,
         timeout_seconds=args.timeout,
+        systemd_unit=args.systemd_unit,
+        self_heal_enabled=args.self_heal == "true",
     )
     reload_runtime()
     print(json.dumps(resource.__dict__, indent=2))
@@ -360,6 +363,8 @@ def cmd_resource_update(args: argparse.Namespace) -> None:
         health_url=args.health_url,
         timeout_seconds=args.timeout,
         enabled=None if args.enabled is None else args.enabled == "true",
+        systemd_unit=args.systemd_unit,
+        self_heal_enabled=None if args.self_heal is None else args.self_heal == "true",
     )
     reload_runtime()
     print(json.dumps(resource, indent=2))
@@ -398,6 +403,16 @@ def cmd_resource_import(args: argparse.Namespace) -> None:
     )
     reload_runtime()
     print(json.dumps(resource.__dict__, indent=2))
+
+
+def cmd_self_heal_run(args: argparse.Namespace) -> None:
+    must_root()
+    report = run_self_heal(args.resource, dry_run=args.dry_run)
+    print(json.dumps(report, indent=2))
+
+
+def cmd_self_heal_status(_: argparse.Namespace) -> None:
+    print(json.dumps(self_heal_status(), indent=2))
 
 
 def cmd_health_check(args: argparse.Namespace) -> None:
@@ -582,6 +597,8 @@ def parser() -> argparse.ArgumentParser:
     r.add_argument("--description", default="")
     r.add_argument("--health-url", default="")
     r.add_argument("--timeout", type=float, default=2.0)
+    r.add_argument("--systemd-unit", default="")
+    r.add_argument("--self-heal", choices=["true","false"], default="false")
     r.add_argument("--allow", default="")
     r.set_defaults(func=cmd_resource_add)
 
@@ -596,6 +613,8 @@ def parser() -> argparse.ArgumentParser:
     r.add_argument("--health-url")
     r.add_argument("--timeout", type=float)
     r.add_argument("--enabled", choices=["true","false"])
+    r.add_argument("--systemd-unit")
+    r.add_argument("--self-heal", choices=["true","false"])
     r.set_defaults(func=cmd_resource_update)
 
     r = sub.add_parser("resource-remove"); r.add_argument("name"); r.set_defaults(func=cmd_resource_remove)
@@ -615,6 +634,14 @@ def parser() -> argparse.ArgumentParser:
     r.add_argument("--scheme", default="http", choices=["http","https"])
     r.add_argument("--timeout", type=float, default=1.0)
     r.set_defaults(func=cmd_resource_import)
+
+    sh = sub.add_parser("self-heal-run", help="Esegue un ciclo self-healing controllato")
+    sh.add_argument("resource", nargs="?", help="Resource opzionale; senza nome controlla tutte")
+    sh.add_argument("--dry-run", action="store_true", help="Mostra cosa verrebbe riavviato senza eseguire restart")
+    sh.set_defaults(func=cmd_self_heal_run)
+
+    sh = sub.add_parser("self-heal-status", help="Mostra configurazione e rate limit del self-healing")
+    sh.set_defaults(func=cmd_self_heal_status)
 
     h = sub.add_parser("health-check")
     h.add_argument("resource", nargs="?", help="Nome Resource; senza nome controlla tutte")

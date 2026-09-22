@@ -23,6 +23,7 @@ WG_CONF = Path(os.environ.get("GE360_WG_CONF", "/etc/wireguard/wg0.conf"))
 
 SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 SAFE_TAG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,31}$")
+SAFE_SYSTEMD_UNIT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@:-]{0,126}\\.service$")
 RESERVED_BRIDGE_PORTS = {8788, 8789, 8790}
 LOOPBACK_TARGETS = {"127.0.0.1", "::1", "localhost"}
 DEVICE_TYPES = {"android", "linux", "windows", "server", "tablet", "unknown"}
@@ -46,6 +47,8 @@ class Resource:
     protocol: str = "tcp"
     health_url: str = ""
     timeout_seconds: float = 2.0
+    systemd_unit: str = ""
+    self_heal_enabled: bool = False
     denied_devices: list[str] = field(default_factory=list)
     enabled: bool = True
 
@@ -165,6 +168,17 @@ def validate_timeout_seconds(value: float | int | str) -> float:
     return round(timeout, 3)
 
 
+def validate_systemd_unit(value: str | None) -> str:
+    unit = (value or "").strip()
+    if not unit:
+        return ""
+    if not SAFE_SYSTEMD_UNIT.fullmatch(unit):
+        raise BridgeError("Unit systemd non valida: usa un nome *.service semplice.")
+    if unit.startswith("ge360-bridge") or unit.startswith("wg-quick@") or unit == "ge360-agent.service":
+        raise BridgeError("Unit systemd protetta: il self-healing può gestire soltanto backend applicativi.")
+    return unit
+
+
 def validate_health_url(value: str | None, target_host: str, target_port: int) -> str:
     health = (value or "").strip()
     if not health:
@@ -252,6 +266,11 @@ def _normalize_resource(resource: dict[str, Any]) -> dict[str, Any]:
         result["timeout_seconds"] = validate_timeout_seconds(result.get("timeout_seconds", 2.0))
     except BridgeError:
         result["timeout_seconds"] = 2.0
+    try:
+        result["systemd_unit"] = validate_systemd_unit(result.get("systemd_unit", ""))
+    except BridgeError:
+        result["systemd_unit"] = ""
+    result["self_heal_enabled"] = bool(result.get("self_heal_enabled", False)) and bool(result["systemd_unit"])
     result["allowed_devices"] = sorted(set(result.get("allowed_devices") or []))
     result["denied_devices"] = sorted(set(result.get("denied_devices") or []))
     result["enabled"] = bool(result.get("enabled", True))
@@ -478,6 +497,8 @@ def register_resource(
     protocol: str = "tcp",
     health_url: str = "",
     timeout_seconds: float = 2.0,
+    systemd_unit: str = "",
+    self_heal_enabled: bool = False,
 ) -> Resource:
     validate_name(name)
     bridge_port = validate_port(bridge_port)
@@ -487,6 +508,10 @@ def register_resource(
     icon = validate_resource_icon(icon)
     timeout_seconds = validate_timeout_seconds(timeout_seconds)
     health_url = validate_health_url(health_url, target_host, target_port)
+    systemd_unit = validate_systemd_unit(systemd_unit)
+    self_heal_enabled = bool(self_heal_enabled)
+    if self_heal_enabled and not systemd_unit:
+        raise BridgeError("Self-healing richiede una systemd_unit valida.")
     if bridge_port in RESERVED_BRIDGE_PORTS:
         raise BridgeError(f"Porta Bridge riservata al sistema: {bridge_port}")
     items = list_resources()
@@ -510,6 +535,8 @@ def register_resource(
         protocol=protocol,
         health_url=health_url,
         timeout_seconds=timeout_seconds,
+        systemd_unit=systemd_unit,
+        self_heal_enabled=self_heal_enabled,
     )
     items.append(asdict(resource))
     save_resources(items)
@@ -532,6 +559,8 @@ def update_resource(
     health_url: str | None = None,
     timeout_seconds: float | None = None,
     enabled: bool | None = None,
+    systemd_unit: str | None = None,
+    self_heal_enabled: bool | None = None,
 ) -> dict[str, Any]:
     items = list_resources()
     target = next((r for r in items if r["name"] == name), None)
@@ -552,6 +581,14 @@ def update_resource(
         new_target_host,
         new_target_port,
     )
+    new_systemd_unit = validate_systemd_unit(
+        systemd_unit if systemd_unit is not None else target.get("systemd_unit", "")
+    )
+    new_self_heal_enabled = bool(
+        self_heal_enabled if self_heal_enabled is not None else target.get("self_heal_enabled", False)
+    )
+    if new_self_heal_enabled and not new_systemd_unit:
+        raise BridgeError("Self-healing richiede una systemd_unit valida.")
 
     target["bridge_port"] = new_bridge_port
     target["listen_port"] = new_bridge_port
@@ -564,6 +601,8 @@ def update_resource(
     target["timeout_seconds"] = validate_timeout_seconds(
         timeout_seconds if timeout_seconds is not None else target.get("timeout_seconds", 2.0)
     )
+    target["systemd_unit"] = new_systemd_unit
+    target["self_heal_enabled"] = new_self_heal_enabled
     if enabled is not None:
         target["enabled"] = bool(enabled)
     save_resources(items)

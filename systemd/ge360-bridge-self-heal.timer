@@ -1,0 +1,11 @@
+[Unit]
+Description=GE360 Bridge self-healing check every minute
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=60s
+AccuracySec=5s
+Unit=ge360-bridge-self-heal.service
+
+[Install]
+WantedBy=timers.target

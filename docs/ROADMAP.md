@@ -721,7 +721,7 @@ Chiusura verificata:
 - nessuna apertura firewall automatica;
 - nessun catalogo Resource sul relay, decrypt WireGuard, TURN terzo, auto-VPS o multi-server introdotto.
 
-## Fase 21 — Multi-server GE360 — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
+## Fase 21 — Multi-server GE360 — COMPLETATA
 
 Obiettivo: creare un control plane GE360 read-only che aggrega più server e presenta alle app Resource namespaced per server senza dipendere dalla macchina fisica.
 
@@ -761,3 +761,23 @@ Fuori scope Fase 21:
 - discovery LAN indiscriminata.
 
 Criterio di chiusura: CI Python verde, Update Engine reale v0.23 build/preflight verde, Server Registry e token privacy verificati, catalogo multi-server namespaced verificato, server offline isolato verificato, backup compatibile verificato e nessuna mutazione remota introdotta.
+
+Chiusura verificata:
+- commit funzionale 345de347d7e92512df8b39ad1b45a068d3cb61c2;
+- CI Python run 35781296134 completata con successo;
+- compileall Python verde;
+- 169 test Python verdi;
+- bash -n installer/script verde;
+- pacchetto reale Update Engine costruito come v0.23.0 e preflight verde;
+- Server Registry verifica token/control URL/TLS pin non esposti dalle API pubbliche;
+- registrazione duplicata server_id rifiutata;
+- control URL non HTTPS rifiutato;
+- snapshot remoto sanitizzato: target_host e campi sconosciuti non entrano nel catalogo;
+- Resource omonime su server diversi verificate con resource_id namespaced;
+- server remoto offline isolato senza nascondere Resource degli altri server;
+- catalogo verifica assenza token server, control URL e TLS pin;
+- server-id e server.token persistenti con permessi 0600;
+- endpoint launcher multi-server filtra le Resource locali secondo ACL esistenti;
+- backup Fase 16 verifica stato multi-server opzionale e restore retrocompatibile;
+- control plane dichiara remote_mutation=false e remote_resource_proxy=false;
+- nessun restart remoto, self-healing remoto, proxy applicativo, mesh WireGuard o replica database introdotto.

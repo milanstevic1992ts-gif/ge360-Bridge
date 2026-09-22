@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.23 — Fase 21: Multi-server GE360 in verifica CI**.
+Versione corrente: **v0.23 — Fase 21 completata: Multi-server GE360**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

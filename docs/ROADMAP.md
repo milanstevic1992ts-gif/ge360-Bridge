@@ -413,7 +413,7 @@ Chiusura verificata:
 - workflow Android non modificato e ultimo run su main verde;
 - nessun backup engine, update engine, NAT discovery, relay o multi-server introdotto.
 
-## Fase 16 — Backup configurazione — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
+## Fase 16 — Backup configurazione — COMPLETATA
 
 Obiettivo: creare snapshot versionati e ripristinabili della configurazione autoritativa del Bridge, con retention corta e senza esportare private key client.
 
@@ -451,7 +451,22 @@ Fuori scope Fase 16:
 
 Criterio di chiusura: CI Python verde, retention 10 verificata, backup giornaliero verificato, restore da archivio valido verificato, corruzione/traversal/private key client rifiutati, installer/timer aggiornati e nessuna funzione Fase 17 anticipata.
 
-## Fase 17 — Update Engine
+Chiusura verificata:
+- commit funzionale 8b2fd7732332e973af190975a38e153ccf41e882;
+- CI Python completata con successo, inclusi compileall, 118 test e bash -n;
+- test retention verificato: conservate esattamente 10 copie e rimossi i backup più vecchi;
+- test scheduled verificato: massimo un backup daily per giorno;
+- test restore verificato con safety backup pre-restore;
+- test dry-run restore verificato senza modifica della configurazione;
+- checksum alterati e path inattesi/traversal rifiutati;
+- campo private_key client in devices.json blocca il backup;
+- audit.db, metrics.db, pairing temporanei e stato runtime self-healing esclusi;
+- archivi e directory backup con permessi root-only;
+- timer ge360-bridge-backup.timer installato e abilitato;
+- workflow Android non modificato e ultimo run su main verde;
+- nessun download/update, rollback software, NAT discovery, relay o multi-server introdotto.
+
+## Fase 17 — Update Engine — PROSSIMA, NON AVVIATA
 
 Backup, download, test, installazione, health check e rollback.
 

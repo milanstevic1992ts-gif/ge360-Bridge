@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.18 — Fase 16: Backup configurazione in verifica CI**.
+Versione corrente: **v0.18 — Fase 16 completata: Backup configurazione**. La Fase 17 — Update Engine è la prossima e non è stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

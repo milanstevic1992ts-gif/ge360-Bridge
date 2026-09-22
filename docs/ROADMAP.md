@@ -123,7 +123,7 @@ Fuori scope Fase 6:
 
 Criterio di chiusura: test e CI verdi per TCP/API/PDF/DNS/ping/traceroute e nessun accesso API/PDF fuori dal target Resource.
 
-## Fase 7 — Connection Doctor — CORRENTE
+## Fase 7 — Connection Doctor — COMPLETATA
 
 Obiettivo: classificare automaticamente e in modo deterministico i problemi usando soltanto segnali già verificati dalle fasi precedenti.
 
@@ -151,7 +151,7 @@ Fuori scope Fase 7:
 
 Criterio di chiusura: test dedicato per ogni categoria e CI verde.
 
-## Fase 8 — Audit log
+## Fase 8 — Audit log — PROSSIMA, NON AVVIATA
 
 Storico eventi del Bridge senza salvare payload personali delle applicazioni.
 

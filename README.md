@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.9 — Fase 7: Connection Doctor**.
+Versione corrente: **v0.9 — Fase 7 completata: Connection Doctor**. La Fase 8 è la prossima e non è ancora stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

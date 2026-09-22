@@ -7,7 +7,7 @@ La Fase 12 completa il lato Android del GE360 Universal Bridge usando il backend
 Dipendenza:
 
 ```text
-com.wireguard.android:tunnel:1.0.20260315
+com.wireguard.android:tunnel:1.0.20260102
 ```
 
 Il controller usa `GoBackend`, quindi il tunnel funziona tramite il `VpnService` userspace WireGuard senza richiedere root.

@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "ge360-bridge-android-sdk"
 include(":ge360-bridge-android")
+include(":ge360-bridge-app")

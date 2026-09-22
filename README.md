@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.17 — Fase 15: Self-healing in verifica CI**.
+Versione corrente: **v0.17 — Fase 15 completata: Self-healing**. La Fase 16 — Backup configurazione è la prossima e non è stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

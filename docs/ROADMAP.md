@@ -367,7 +367,7 @@ Chiusura verificata:
 - Agent read-only: nessun restart backend o modifica Resource remota;
 - nessun self-healing, NAT discovery, relay o control plane multi-server introdotto.
 
-## Fase 15 — Self-healing — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
+## Fase 15 — Self-healing — COMPLETATA
 
 Obiettivo: rilevare una Resource backend locale realmente non disponibile e tentare un restart systemd controllato senza creare loop di riavvio.
 
@@ -401,7 +401,19 @@ Fuori scope Fase 15:
 
 Criterio di chiusura: CI Python verde, test anti-loop 3/10 minuti verde, installer aggiornato, timer systemd presente, compatibilità Resource Registry verificata e nessuna funzione Fase 16 anticipata.
 
-## Fase 16 — Backup configurazione
+Chiusura verificata:
+- commit funzionale 600ce9515f03a929ce0ac14f9f5ca0422f39639e;
+- fix validazione unit systemd f55975635747f4f2e11d8ae97177300cd38fe5ed;
+- CI Python completata con successo sul fix, inclusi compileall, 109 test e bash -n;
+- test anti-loop verificato: quarto restart bloccato entro 10 minuti;
+- restart fallito conteggiato nel limite;
+- dry-run non consuma tentativi e non esegue restart;
+- timer ge360-bridge-self-heal.timer presente con intervallo 60 secondi;
+- Resource preesistenti migrate in modo conservativo con self-healing disattivato;
+- workflow Android non modificato e ultimo run su main verde;
+- nessun backup engine, update engine, NAT discovery, relay o multi-server introdotto.
+
+## Fase 16 — Backup configurazione — PROSSIMA, NON AVVIATA
 
 Backup versionati di device, resource, gruppi, ACL e configurazione Bridge.
 

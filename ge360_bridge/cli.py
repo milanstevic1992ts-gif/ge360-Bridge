@@ -15,25 +15,32 @@ from .core import (
     WG_CONF,
     BridgeError,
     Device,
+    create_group,
     device_is_active,
+    effective_services_for_device,
     find_device,
-    grant_device,
     list_devices,
+    list_groups,
     list_services,
     new_device_id,
     next_device_ip,
+    normalize_tags,
     random_token,
     register_service,
+    remove_group,
     remove_service,
     rename_device,
     revoke_device,
     save_devices,
+    set_device_access_override,
     set_device_enabled,
+    set_group_device,
+    set_group_enabled,
+    set_group_service,
     update_device_metadata,
     utc_now_iso,
     validate_device_type,
     validate_expiry,
-    normalize_tags,
     wg_keypair,
 )
 
@@ -66,9 +73,7 @@ def load_env() -> dict[str, str]:
 
 def endpoint() -> str:
     env = load_env()
-    if env.get("PUBLIC_ENDPOINT"):
-        return env["PUBLIC_ENDPOINT"]
-    return f"CHANGE_ME:{env.get('WG_PORT', str(DEFAULT_WG_PORT))}"
+    return env.get("PUBLIC_ENDPOINT") or f"CHANGE_ME:{env.get('WG_PORT', str(DEFAULT_WG_PORT))}"
 
 
 def server_public_key() -> str:
@@ -109,8 +114,7 @@ def render_wg_config() -> None:
 
 def make_client_conf(private_key: str, psk: str, vpn_ip: str) -> str:
     env = load_env()
-    dns = env.get("CLIENT_DNS", "")
-    dns_line = f"DNS = {dns}\n" if dns else ""
+    dns_line = f"DNS = {env['CLIENT_DNS']}\n" if env.get("CLIENT_DNS") else ""
     return (
         "[Interface]\n"
         f"PrivateKey = {private_key}\n"
@@ -126,11 +130,13 @@ def make_client_conf(private_key: str, psk: str, vpn_ip: str) -> str:
 
 
 def bundle_for(name: str, conf: str, token: str) -> str:
-    services = [
-        {"name": s["name"], "url": f"http://{DEFAULT_SERVER_VPN_IP}:{s['listen_port']}"}
-        for s in list_services()
-        if s.get("enabled", True) and name in s.get("allowed_devices", [])
-    ]
+    device = find_device(name)
+    services = []
+    if device:
+        services = [
+            {"name": s["name"], "url": f"http://{DEFAULT_SERVER_VPN_IP}:{s['listen_port']}"}
+            for s in effective_services_for_device(device)
+        ]
     payload = {
         "schema": "ge360-bridge-pairing/v1",
         "device": name,
@@ -171,69 +177,40 @@ def cmd_device_add(args: argparse.Namespace) -> None:
     must_root()
     if any(d["name"] == args.name for d in list_devices()):
         raise BridgeError(f"Dispositivo già presente: {args.name}")
-    device_type = validate_device_type(args.type)
-    expires_at = validate_expiry(args.expires)
-    tags = parse_tags_csv(args.tags)
     private, public, psk = wg_keypair()
-    vpn_ip = next_device_ip()
-    token = random_token()
-    items = list_devices()
     device = Device(
         device_id=new_device_id(),
         name=args.name,
-        device_type=device_type,
+        device_type=validate_device_type(args.type),
         owner=(args.owner or "").strip()[:120],
-        vpn_ip=vpn_ip,
+        vpn_ip=next_device_ip(),
         public_key=public,
         preshared_key=psk,
-        token=token,
+        token=random_token(),
         created_at=utc_now_iso(),
-        expires_at=expires_at,
+        expires_at=validate_expiry(args.expires),
         notes=(args.notes or "").strip()[:1000],
-        tags=tags,
+        tags=parse_tags_csv(args.tags),
         enabled=True,
     )
+    items = list_devices()
     items.append(device.__dict__)
     save_devices(items)
     render_wg_config()
-    conf = make_client_conf(private, psk, vpn_ip)
-    payload = bundle_for(args.name, conf, token)
-    print(f"Dispositivo: {args.name}\nID: {device.device_id}\nVPN IP: {vpn_ip}\n")
-    if args.raw:
-        print(payload)
-    else:
-        qr_print(payload)
-        print("\nIl QR contiene una chiave privata: scansionalo in un luogo sicuro e non pubblicarlo.")
+    conf = make_client_conf(private, psk, device.vpn_ip)
+    payload = bundle_for(device.name, conf, device.token)
+    print(f"Dispositivo: {device.name}\nID: {device.device_id}\nVPN IP: {device.vpn_ip}\n")
+    print(payload) if args.raw else qr_print(payload)
 
 
-def cmd_device_disable(args: argparse.Namespace) -> None:
+def cmd_device_state(args: argparse.Namespace, enabled: bool) -> None:
     must_root()
-    device = set_device_enabled(args.device, False)
+    device = set_device_enabled(args.device, enabled)
     if not device:
         raise BridgeError("Dispositivo non trovato.")
     render_wg_config()
     reload_runtime()
-    print(f"Disabilitato: {device['name']} ({device['device_id']})")
-
-
-def cmd_device_enable(args: argparse.Namespace) -> None:
-    must_root()
-    device = set_device_enabled(args.device, True)
-    if not device:
-        raise BridgeError("Dispositivo non trovato.")
-    render_wg_config()
-    reload_runtime()
-    print(f"Abilitato: {device['name']} ({device['device_id']})")
-
-
-def cmd_device_revoke(args: argparse.Namespace) -> None:
-    must_root()
-    device = revoke_device(args.device)
-    if not device:
-        raise BridgeError("Dispositivo non trovato.")
-    render_wg_config()
-    reload_runtime()
-    print(f"Revocato/disabilitato: {device['name']} ({device['device_id']})")
+    print(f"{'Abilitato' if enabled else 'Disabilitato'}: {device['name']} ({device['device_id']})")
 
 
 def cmd_device_rename(args: argparse.Namespace) -> None:
@@ -254,9 +231,7 @@ def cmd_device_update(args: argparse.Namespace) -> None:
         expires = None
     elif args.expires is not None:
         expires = args.expires
-    tags = current.get("tags", [])
-    if args.tags is not None:
-        tags = parse_tags_csv(args.tags)
+    tags = current.get("tags", []) if args.tags is None else parse_tags_csv(args.tags)
     device = update_device_metadata(
         args.device,
         device_type=args.type if args.type is not None else current.get("device_type", "unknown"),
@@ -267,8 +242,7 @@ def cmd_device_update(args: argparse.Namespace) -> None:
     )
     render_wg_config()
     reload_runtime()
-    safe = {k: v for k, v in device.items() if k not in ("preshared_key", "token", "public_key")}
-    print(json.dumps(safe, indent=2))
+    print(json.dumps({k: v for k, v in device.items() if k not in ("preshared_key", "token", "public_key")}, indent=2))
 
 
 def cmd_device_show(args: argparse.Namespace) -> None:
@@ -276,6 +250,8 @@ def cmd_device_show(args: argparse.Namespace) -> None:
     if not device:
         raise BridgeError("Dispositivo non trovato.")
     safe = {k: v for k, v in device.items() if k not in ("preshared_key", "token")}
+    safe["groups"] = [g["name"] for g in list_groups() if device["device_id"] in g.get("device_ids", [])]
+    safe["effective_services"] = [s["name"] for s in effective_services_for_device(device)]
     print(json.dumps(safe, indent=2))
 
 
@@ -286,12 +262,53 @@ def cmd_device_sync(_: argparse.Namespace) -> None:
     print("Device Registry sincronizzato con WireGuard.")
 
 
+def cmd_group_create(args: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps(create_group(args.name, args.description or ""), indent=2))
+
+
+def cmd_group_remove(args: argparse.Namespace) -> None:
+    must_root()
+    if not remove_group(args.name):
+        raise BridgeError("Gruppo non trovato.")
+    reload_runtime()
+    print(f"Gruppo rimosso: {args.name}")
+
+
+def cmd_group_state(args: argparse.Namespace, enabled: bool) -> None:
+    must_root()
+    group = set_group_enabled(args.name, enabled)
+    reload_runtime()
+    print(json.dumps(group, indent=2))
+
+
+def cmd_group_device(args: argparse.Namespace, assigned: bool) -> None:
+    must_root()
+    group = set_group_device(args.group, args.device, assigned)
+    reload_runtime()
+    print(json.dumps(group, indent=2))
+
+
+def cmd_group_service(args: argparse.Namespace, allowed: bool) -> None:
+    must_root()
+    group = set_group_service(args.group, args.service, allowed)
+    reload_runtime()
+    print(json.dumps(group, indent=2))
+
+
+def cmd_service_override(args: argparse.Namespace, decision: str) -> None:
+    must_root()
+    service = set_device_access_override(args.service, args.device, decision)
+    reload_runtime()
+    print(json.dumps(service, indent=2))
+
+
 def cmd_service_add(args: argparse.Namespace) -> None:
     must_root()
     allowed = [x for x in (args.allow or "").split(",") if x]
-    s = register_service(args.name, args.port, args.target_host, args.target_port, allowed)
+    service = register_service(args.name, args.port, args.target_host, args.target_port, allowed)
     reload_runtime()
-    print(json.dumps(s.__dict__, indent=2))
+    print(json.dumps(service.__dict__, indent=2))
 
 
 def cmd_service_remove(args: argparse.Namespace) -> None:
@@ -302,18 +319,9 @@ def cmd_service_remove(args: argparse.Namespace) -> None:
     print(f"Rimosso: {args.name}")
 
 
-def cmd_service_acl(args: argparse.Namespace, grant: bool) -> None:
-    must_root()
-    s = grant_device(args.service, args.device, grant)
-    reload_runtime()
-    print(json.dumps(s, indent=2))
-
-
 def cmd_list(_: argparse.Namespace) -> None:
-    safe_devices = []
-    for d in list_devices():
-        safe_devices.append({k: v for k, v in d.items() if k not in ("preshared_key", "token")})
-    print(json.dumps({"devices": safe_devices, "services": list_services()}, indent=2))
+    safe_devices = [{k: v for k, v in d.items() if k not in ("preshared_key", "token")} for d in list_devices()]
+    print(json.dumps({"devices": safe_devices, "groups": list_groups(), "services": list_services()}, indent=2))
 
 
 def port_open(host: str, port: int) -> bool:
@@ -331,6 +339,7 @@ def cmd_status(_: argparse.Namespace) -> None:
         "services_file": SERVICES_FILE.exists(),
         "endpoint": endpoint(),
         "health_url": f"http://{DEFAULT_SERVER_VPN_IP}:{HEALTH_PORT}/v1/status",
+        "groups": len(list_groups()),
         "services": [],
     }
     for s in list_services():
@@ -340,6 +349,7 @@ def cmd_status(_: argparse.Namespace) -> None:
             "target_reachable": port_open(s["target_host"], int(s["target_port"])),
             "bridge_port": s["listen_port"],
             "allowed_devices": s.get("allowed_devices", []),
+            "denied_devices": s.get("denied_devices", []),
         })
     status["wg_port"] = int(env.get("WG_PORT", DEFAULT_WG_PORT))
     print(json.dumps(status, indent=2))
@@ -353,73 +363,42 @@ def parser() -> argparse.ArgumentParser:
     d.add_argument("name")
     d.add_argument("--type", default="unknown", choices=["android", "linux", "windows", "server", "tablet", "unknown"])
     d.add_argument("--owner", default="")
-    d.add_argument("--expires", default=None, help="Scadenza YYYY-MM-DD")
+    d.add_argument("--expires", default=None)
     d.add_argument("--notes", default="")
-    d.add_argument("--tags", default="", help="Tag separati da virgola")
-    d.add_argument("--raw", action="store_true", help="Stampa JSON invece del QR")
+    d.add_argument("--tags", default="")
+    d.add_argument("--raw", action="store_true")
     d.set_defaults(func=cmd_device_add)
 
-    d = sub.add_parser("device-show")
-    d.add_argument("device", help="Nome o device_id")
-    d.set_defaults(func=cmd_device_show)
-
-    d = sub.add_parser("device-rename")
-    d.add_argument("device", help="Nome o device_id")
-    d.add_argument("new_name")
-    d.set_defaults(func=cmd_device_rename)
-
+    d = sub.add_parser("device-show"); d.add_argument("device"); d.set_defaults(func=cmd_device_show)
+    d = sub.add_parser("device-rename"); d.add_argument("device"); d.add_argument("new_name"); d.set_defaults(func=cmd_device_rename)
     d = sub.add_parser("device-update")
-    d.add_argument("device", help="Nome o device_id")
-    d.add_argument("--type", choices=["android", "linux", "windows", "server", "tablet", "unknown"])
-    d.add_argument("--owner")
-    d.add_argument("--expires", help="Scadenza YYYY-MM-DD")
-    d.add_argument("--clear-expiry", action="store_true")
-    d.add_argument("--notes")
-    d.add_argument("--tags", help="Tag separati da virgola")
+    d.add_argument("device"); d.add_argument("--type", choices=["android","linux","windows","server","tablet","unknown"])
+    d.add_argument("--owner"); d.add_argument("--expires"); d.add_argument("--clear-expiry", action="store_true"); d.add_argument("--notes"); d.add_argument("--tags")
     d.set_defaults(func=cmd_device_update)
+    d = sub.add_parser("device-enable"); d.add_argument("device"); d.set_defaults(func=lambda a: cmd_device_state(a, True))
+    d = sub.add_parser("device-disable"); d.add_argument("device"); d.set_defaults(func=lambda a: cmd_device_state(a, False))
+    d = sub.add_parser("device-revoke"); d.add_argument("device"); d.set_defaults(func=lambda a: cmd_device_state(a, False))
+    d = sub.add_parser("device-sync"); d.set_defaults(func=cmd_device_sync)
 
-    d = sub.add_parser("device-enable")
-    d.add_argument("device", help="Nome o device_id")
-    d.set_defaults(func=cmd_device_enable)
-
-    d = sub.add_parser("device-disable")
-    d.add_argument("device", help="Nome o device_id")
-    d.set_defaults(func=cmd_device_disable)
-
-    d = sub.add_parser("device-revoke")
-    d.add_argument("device", help="Alias compatibile di device-disable")
-    d.set_defaults(func=cmd_device_revoke)
-
-    d = sub.add_parser("device-sync")
-    d.set_defaults(func=cmd_device_sync)
+    g = sub.add_parser("group-create"); g.add_argument("name"); g.add_argument("--description", default=""); g.set_defaults(func=cmd_group_create)
+    g = sub.add_parser("group-remove"); g.add_argument("name"); g.set_defaults(func=cmd_group_remove)
+    g = sub.add_parser("group-enable"); g.add_argument("name"); g.set_defaults(func=lambda a: cmd_group_state(a, True))
+    g = sub.add_parser("group-disable"); g.add_argument("name"); g.set_defaults(func=lambda a: cmd_group_state(a, False))
+    g = sub.add_parser("group-device-add"); g.add_argument("group"); g.add_argument("device"); g.set_defaults(func=lambda a: cmd_group_device(a, True))
+    g = sub.add_parser("group-device-remove"); g.add_argument("group"); g.add_argument("device"); g.set_defaults(func=lambda a: cmd_group_device(a, False))
+    g = sub.add_parser("group-service-grant"); g.add_argument("group"); g.add_argument("service"); g.set_defaults(func=lambda a: cmd_group_service(a, True))
+    g = sub.add_parser("group-service-revoke"); g.add_argument("group"); g.add_argument("service"); g.set_defaults(func=lambda a: cmd_group_service(a, False))
 
     s = sub.add_parser("service-add")
-    s.add_argument("name")
-    s.add_argument("--port", type=int, required=True, help="Porta esposta solo su WireGuard")
-    s.add_argument("--target-host", default="127.0.0.1")
-    s.add_argument("--target-port", type=int, required=True)
-    s.add_argument("--allow", default="", help="Nomi dispositivi separati da virgola")
+    s.add_argument("name"); s.add_argument("--port", type=int, required=True); s.add_argument("--target-host", default="127.0.0.1"); s.add_argument("--target-port", type=int, required=True); s.add_argument("--allow", default="")
     s.set_defaults(func=cmd_service_add)
+    s = sub.add_parser("service-remove"); s.add_argument("name"); s.set_defaults(func=cmd_service_remove)
+    s = sub.add_parser("service-grant"); s.add_argument("service"); s.add_argument("device"); s.set_defaults(func=lambda a: cmd_service_override(a, "allow"))
+    s = sub.add_parser("service-revoke"); s.add_argument("service"); s.add_argument("device"); s.set_defaults(func=lambda a: cmd_service_override(a, "deny"))
+    s = sub.add_parser("service-inherit"); s.add_argument("service"); s.add_argument("device"); s.set_defaults(func=lambda a: cmd_service_override(a, "inherit"))
 
-    s = sub.add_parser("service-remove")
-    s.add_argument("name")
-    s.set_defaults(func=cmd_service_remove)
-
-    g = sub.add_parser("service-grant")
-    g.add_argument("service")
-    g.add_argument("device")
-    g.set_defaults(func=lambda a: cmd_service_acl(a, True))
-
-    g = sub.add_parser("service-revoke")
-    g.add_argument("service")
-    g.add_argument("device")
-    g.set_defaults(func=lambda a: cmd_service_acl(a, False))
-
-    l = sub.add_parser("list")
-    l.set_defaults(func=cmd_list)
-
-    st = sub.add_parser("status")
-    st.set_defaults(func=cmd_status)
+    l = sub.add_parser("list"); l.set_defaults(func=cmd_list)
+    st = sub.add_parser("status"); st.set_defaults(func=cmd_status)
     return p
 
 

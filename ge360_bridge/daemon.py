@@ -5,7 +5,14 @@ import json
 import signal
 from typing import Any
 
-from .core import allowed_ips_for_service, device_is_active, list_devices, list_services
+from .core import (
+    allowed_ips_for_service,
+    device_is_active,
+    effective_services_for_device,
+    list_devices,
+    list_groups,
+    list_services,
+)
 
 BIND_HOST = "10.88.0.1"
 HEALTH_PORT = 8788
@@ -45,7 +52,10 @@ async def handle_client(client_reader: asyncio.StreamReader, client_writer: asyn
 async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     peer = writer.get_extra_info("peername")
     peer_ip = peer[0] if peer else ""
-    active_devices = {d["vpn_ip"]: d for d in list_devices() if device_is_active(d)}
+    devices = list_devices()
+    groups = list_groups()
+    services_all = list_services()
+    active_devices = {d["vpn_ip"]: d for d in devices if device_is_active(d)}
     if peer_ip not in active_devices:
         writer.close()
         await writer.wait_closed()
@@ -57,6 +67,7 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         writer.close()
         await writer.wait_closed()
         return
+
     first = request.split(b"\r\n", 1)[0].decode("ascii", "replace")
     parts = first.split()
     path = parts[1] if len(parts) >= 2 else "/"
@@ -65,21 +76,26 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         status = "404 Not Found"
     else:
         device = active_devices[peer_ip]
-        device_name = device["name"]
-        services = []
-        for s in list_services():
-            if s.get("enabled", True) and device_name in s.get("allowed_devices", []):
-                services.append({"name": s["name"], "url": f"http://{BIND_HOST}:{s['listen_port']}"})
+        services = [
+            {"name": s["name"], "url": f"http://{BIND_HOST}:{s['listen_port']}"}
+            for s in effective_services_for_device(device, services_all, groups)
+        ]
+        memberships = [
+            g["name"] for g in groups
+            if g.get("enabled", True) and device["device_id"] in g.get("device_ids", [])
+        ]
         body = json.dumps({
             "ok": True,
             "bridge": "GE360 Universal Bridge",
             "schema": "ge360-bridge-status/v1",
-            "device": device_name,
+            "device": device["name"],
             "device_id": device["device_id"],
             "vpn_ip": peer_ip,
+            "groups": memberships,
             "services": services,
         }).encode()
         status = "200 OK"
+
     writer.write(
         f"HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode()
         + body
@@ -91,6 +107,7 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
 async def main() -> None:
     devices = list_devices()
+    groups = list_groups()
     servers: list[asyncio.AbstractServer] = []
 
     health = await asyncio.start_server(handle_health, BIND_HOST, HEALTH_PORT)
@@ -99,7 +116,7 @@ async def main() -> None:
     for service in list_services():
         if not service.get("enabled", True):
             continue
-        allowed = allowed_ips_for_service(service, devices)
+        allowed = allowed_ips_for_service(service, devices, groups)
         server = await asyncio.start_server(
             lambda r, w, s=service, a=allowed: handle_client(r, w, s, a),
             BIND_HOST,

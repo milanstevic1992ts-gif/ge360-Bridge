@@ -13,41 +13,39 @@ Questa roadmap è la fonte di verità del progetto. Le fasi vanno implementate i
 
 WireGuard, rete privata 10.88.0.0/24, ACL per device, proxy TCP locale, firewall nftables, pairing QR v1, revoca, dashboard, health, handshake, RX/TX, controllo backend, installer Debian, systemd, boot verify e CI.
 
-## Fase 1 — Device Registry — CORRENTE
+## Fase 1 — Device Registry — COMPLETATA
 
-Obiettivo: trasformare i peer WireGuard in dispositivi GE360 gestibili senza cambiare il pairing v1.
+device_id stabile, metadati, rename, enable/disable, scadenza, note, tag e migrazione compatibile dei device esistenti.
+
+## Fase 2 — Gruppi e ACL semplificate — CORRENTE
+
+Obiettivo: amministrare l'accesso ai servizi tramite gruppi senza perdere le ACL dirette esistenti.
 
 Scope obbligatorio:
-- device_id stabile e indipendente dal nome;
-- nome modificabile;
-- tipo: android, linux, windows, server, tablet, unknown;
-- proprietario;
-- IP VPN e chiavi esistenti preservati;
-- data creazione;
-- stato enabled/disabled;
-- scadenza opzionale;
-- note;
-- tag;
-- visualizzazione ultimo handshake/endpoint tramite stato WireGuard;
-- rinomina con aggiornamento delle ACL esistenti;
-- migrazione compatibile dei devices.json esistenti;
-- scadenza applicata al runtime senza cancellare il device.
+- Group Registry persistente in groups.json;
+- gruppi con nome, descrizione, stato enabled/disabled;
+- appartenenza device tramite device_id stabile;
+- un device può appartenere a più gruppi;
+- assegnazione dei servizi esistenti ai gruppi;
+- accesso effettivo ereditato dai gruppi;
+- override diretto per singolo device: allow, deny, inherit;
+- deny diretto con precedenza sull'accesso di gruppo;
+- allow diretto indipendente dai gruppi;
+- rename device compatibile con ACL dirette e membership di gruppo;
+- rimozione servizio pulita dai gruppi;
+- dashboard e CLI per gruppi/ACL;
+- health endpoint coerente con l'accesso effettivo;
+- migrazione automatica delle ACL v0.3 senza perdita di allowed_devices.
 
-Fuori scope Fase 1:
-- gruppi;
-- pairing monouso v2;
+Fuori scope Fase 2:
+- pairing v2;
 - Resource Registry;
 - Health Engine avanzato;
 - diagnostica avanzata;
-- Connection Doctor;
 - audit;
-- NAT traversal.
+- NAT discovery/traversal.
 
-Criterio di chiusura: test e CI verdi, upgrade da v0.2 senza perdita di peer, chiavi, IP e ACL.
-
-## Fase 2 — Gruppi e ACL semplificate
-
-Gruppi di dispositivi, assegnazione risorse ai gruppi e override per singolo device.
+Criterio di chiusura: test e CI verdi, upgrade da v0.3 senza perdita di device, servizi o ACL dirette, e verifica precedenza deny > allow diretto > gruppo > nessun accesso.
 
 ## Fase 3 — Pairing sicuro v2
 

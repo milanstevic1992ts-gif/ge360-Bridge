@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ \${EUID:-$(id -u)} -ne 0 ]]; then
+if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
   echo "Esegui con sudo: sudo ./install.sh" >&2
   exit 1
 fi
 
-ROOT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR=/etc/ge360-bridge
 WG_DIR=/etc/wireguard
 WG_IF=wg0
@@ -56,12 +56,13 @@ fi
 
 [[ -e "$STATE_DIR/services.json" ]] || printf '[]\n' > "$STATE_DIR/services.json"
 [[ -e "$STATE_DIR/devices.json" ]] || printf '[]\n' > "$STATE_DIR/devices.json"
+[[ -e "$STATE_DIR/groups.json" ]] || printf '[]\n' > "$STATE_DIR/groups.json"
 
-say "Migrazione Device Registry Fase 1"
+say "Migrazione registry Fase 1 + ACL Fase 2"
 PYTHONPATH="$PY_DST" python3 - <<'PY'
-from ge360_bridge.core import upgrade_device_registry
-changed = upgrade_device_registry()
-print(f"Device migrati/aggiornati: {changed}")
+from ge360_bridge.core import upgrade_device_registry, upgrade_acl_registry
+print(f"Device migrati/aggiornati: {upgrade_device_registry()}")
+print(f"Servizi ACL migrati/aggiornati: {upgrade_acl_registry()}")
 PY
 
 chmod 600 "$STATE_DIR"/*.json "$STATE_DIR"/bridge.env "$STATE_DIR"/server.key "$STATE_DIR"/server.pub "$STATE_DIR"/dashboard.token
@@ -107,7 +108,7 @@ if [[ -n "$CURRENT_ENDPOINT" && "$CURRENT_ENDPOINT" != CHANGE_ME:* ]]; then
 else
   KEEP_ENDPOINT=0
 fi
-IPV6="$(ip -6 -o addr show scope global 2>/dev/null | awk '$4 !~ /^fe80/ {sub(/\/.*/,"",$4); print $4; exit}')"
+IPV6="$(ip -6 -o addr show scope global 2>/dev/null | awk '$4 !~ /^fe80/ {sub(/\/.*$/,"",$4); print $4; exit}')"
 UPNP_OUT="$(upnpc -s 2>/dev/null || true)"
 WAN4="$(printf '%s\n' "$UPNP_OUT" | sed -n 's/.*ExternalIPAddress = \([^ ]*\).*/\1/p' | head -n1)"
 
@@ -127,16 +128,16 @@ then
   echo "IPv4 WAN rilevato: $WAN4:$WG_PORT"
 else
   echo "Endpoint pubblico non determinabile automaticamente."
-  echo "Se sei sotto CGNAT e non hai IPv6 globale, una connessione diretta da Internet non è tecnicamente possibile senza un relay/VPS esterno."
-  echo "Altrimenti configura port-forward UDP $WG_PORT e modifica PUBLIC_ENDPOINT in $STATE_DIR/bridge.env."
+  echo "Se sei sotto CGNAT e non hai IPv6 globale, una connessione diretta da Internet non è possibile senza relay/VPS esterno."
+  echo "Altrimenti configura port-forward UDP $WG_PORT e PUBLIC_ENDPOINT in $STATE_DIR/bridge.env."
 fi
 
 say "Installazione completata"
-echo "Versione: GE360 Bridge v0.3 - Fase 1 Device Registry"
+echo "Versione: GE360 Bridge v0.4 - Fase 2 Gruppi e ACL"
 echo "Dashboard locale: http://127.0.0.1:8789"
 echo "Dashboard via Bridge: http://10.88.0.1:8789"
 echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
 echo "Roadmap: docs/ROADMAP.md"
-echo "1) sudo ge360-bridge device-add telefono --type android --owner Milan"
-echo "2) sudo ge360-bridge service-add rilievi --port 9888 --target-port 9888 --allow telefono"
-echo "3) ge360-bridge status"
+echo "Esempio: sudo ge360-bridge group-create amministratori"
+echo "Esempio: sudo ge360-bridge group-device-add amministratori telefono"
+echo "Esempio: sudo ge360-bridge group-service-grant amministratori rilievi"

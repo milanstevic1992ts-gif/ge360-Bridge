@@ -15,6 +15,7 @@ from typing import Any
 STATE_DIR = Path(os.environ.get("GE360_BRIDGE_STATE_DIR", "/etc/ge360-bridge"))
 SERVICES_FILE = STATE_DIR / "services.json"
 DEVICES_FILE = STATE_DIR / "devices.json"
+GROUPS_FILE = STATE_DIR / "groups.json"
 BRIDGE_ENV = STATE_DIR / "bridge.env"
 WG_CONF = Path(os.environ.get("GE360_WG_CONF", "/etc/wireguard/wg0.conf"))
 
@@ -37,6 +38,7 @@ class Service:
     target_host: str
     target_port: int
     allowed_devices: list[str]
+    denied_devices: list[str] = field(default_factory=list)
     enabled: bool = True
 
 
@@ -54,6 +56,15 @@ class Device:
     expires_at: str | None = None
     notes: str = ""
     tags: list[str] = field(default_factory=list)
+    enabled: bool = True
+
+
+@dataclass
+class Group:
+    name: str
+    description: str = ""
+    device_ids: list[str] = field(default_factory=list)
+    allowed_services: list[str] = field(default_factory=list)
     enabled: bool = True
 
 
@@ -157,12 +168,31 @@ def _normalize_device(device: dict[str, Any], created_at_default: str = "") -> d
     return result
 
 
+def _normalize_service(service: dict[str, Any]) -> dict[str, Any]:
+    result = dict(service)
+    result["allowed_devices"] = sorted(set(result.get("allowed_devices") or []))
+    result["denied_devices"] = sorted(set(result.get("denied_devices") or []))
+    result["enabled"] = bool(result.get("enabled", True))
+    return result
+
+
+def _normalize_group(group: dict[str, Any]) -> dict[str, Any]:
+    result = dict(group)
+    result["name"] = str(result.get("name") or "")
+    result["description"] = str(result.get("description") or "")[:500]
+    result["device_ids"] = sorted(set(str(x) for x in (result.get("device_ids") or []) if x))
+    result["allowed_services"] = sorted(set(str(x) for x in (result.get("allowed_services") or []) if x))
+    result["enabled"] = bool(result.get("enabled", True))
+    return result
+
+
 def list_services() -> list[dict[str, Any]]:
-    return _load(SERVICES_FILE, [])
+    return [_normalize_service(s) for s in _load(SERVICES_FILE, [])]
 
 
 def save_services(items: list[dict[str, Any]]) -> None:
-    _atomic_write(SERVICES_FILE, items)
+    normalized = [_normalize_service(s) for s in items]
+    _atomic_write(SERVICES_FILE, normalized)
 
 
 def list_devices() -> list[dict[str, Any]]:
@@ -182,6 +212,28 @@ def save_devices(items: list[dict[str, Any]]) -> None:
     _atomic_write(DEVICES_FILE, normalized)
 
 
+def list_groups() -> list[dict[str, Any]]:
+    return [_normalize_group(g) for g in _load(GROUPS_FILE, [])]
+
+
+def save_groups(items: list[dict[str, Any]]) -> None:
+    normalized = [_normalize_group(g) for g in items]
+    names = [g["name"] for g in normalized]
+    if len(names) != len(set(names)):
+        raise BridgeError("Group Registry non valido: nome gruppo duplicato.")
+    known_devices = {d["device_id"] for d in list_devices()}
+    known_services = {s["name"] for s in list_services()}
+    for group in normalized:
+        validate_name(group["name"])
+        unknown_devices = sorted(set(group["device_ids"]) - known_devices)
+        if unknown_devices:
+            raise BridgeError("Device sconosciuti nel gruppo: " + ", ".join(unknown_devices))
+        unknown_services = sorted(set(group["allowed_services"]) - known_services)
+        if unknown_services:
+            raise BridgeError("Servizi sconosciuti nel gruppo: " + ", ".join(unknown_services))
+    _atomic_write(GROUPS_FILE, normalized)
+
+
 def upgrade_device_registry() -> int:
     raw = _load(DEVICES_FILE, [])
     now = utc_now_iso()
@@ -192,10 +244,28 @@ def upgrade_device_registry() -> int:
     return changed
 
 
+def upgrade_acl_registry() -> int:
+    raw_services = _load(SERVICES_FILE, [])
+    upgraded_services = [_normalize_service(s) for s in raw_services]
+    changed = sum(1 for before, after in zip(raw_services, upgraded_services) if before != after)
+    if upgraded_services != raw_services:
+        save_services(upgraded_services)
+    if not GROUPS_FILE.exists():
+        _atomic_write(GROUPS_FILE, [])
+    return changed
+
+
 def find_device(identifier: str) -> dict[str, Any] | None:
     for d in list_devices():
         if d.get("device_id") == identifier or d.get("name") == identifier:
             return d
+    return None
+
+
+def find_group(name: str) -> dict[str, Any] | None:
+    for group in list_groups():
+        if group.get("name") == name:
+            return group
     return None
 
 
@@ -271,6 +341,14 @@ def remove_service(name: str) -> bool:
     if len(new) == len(items):
         return False
     save_services(new)
+    groups = list_groups()
+    changed = False
+    for group in groups:
+        if name in group.get("allowed_services", []):
+            group["allowed_services"] = [x for x in group["allowed_services"] if x != name]
+            changed = True
+    if changed:
+        save_groups(groups)
     return True
 
 
@@ -294,8 +372,6 @@ def revoke_device(identifier: str) -> dict[str, Any] | None:
 def rename_device(identifier: str, new_name: str) -> dict[str, Any]:
     validate_name(new_name)
     items = list_devices()
-    if any(d.get("name") == new_name and d.get("device_id") != identifier and d.get("name") != identifier for d in items):
-        raise BridgeError(f"Nome dispositivo già usato: {new_name}")
     target = None
     old_name = ""
     for d in items:
@@ -307,7 +383,7 @@ def rename_device(identifier: str, new_name: str) -> dict[str, Any]:
         raise BridgeError("Dispositivo non trovato.")
     if new_name == old_name:
         return target
-    if any(d.get("name") == new_name and d is not target for d in items):
+    if any(d.get("name") == new_name for d in items if d is not target):
         raise BridgeError(f"Nome dispositivo già usato: {new_name}")
     target["name"] = new_name
     save_devices(items)
@@ -315,10 +391,11 @@ def rename_device(identifier: str, new_name: str) -> dict[str, Any]:
     services = list_services()
     changed = False
     for service in services:
-        allowed = list(service.get("allowed_devices", []))
-        if old_name in allowed:
-            service["allowed_devices"] = sorted({new_name if x == old_name else x for x in allowed})
-            changed = True
+        for field_name in ("allowed_devices", "denied_devices"):
+            values = list(service.get(field_name, []))
+            if old_name in values:
+                service[field_name] = sorted({new_name if x == old_name else x for x in values})
+                changed = True
     if changed:
         save_services(services)
     return target
@@ -355,28 +432,155 @@ def update_device_metadata(
     return target
 
 
-def grant_device(service_name: str, device_name: str, grant: bool) -> dict[str, Any]:
-    items = list_services()
-    known = {d["name"] for d in list_devices() if d.get("enabled", True)}
-    if device_name not in known:
-        raise BridgeError(f"Dispositivo sconosciuto o disabilitato: {device_name}")
-    for s in items:
-        if s.get("name") == service_name:
-            allowed = set(s.get("allowed_devices", []))
-            if grant:
-                allowed.add(device_name)
+def create_group(name: str, description: str = "") -> dict[str, Any]:
+    validate_name(name)
+    groups = list_groups()
+    if any(g["name"] == name for g in groups):
+        raise BridgeError(f"Gruppo già presente: {name}")
+    group = asdict(Group(name=name, description=description.strip()[:500]))
+    groups.append(group)
+    save_groups(groups)
+    return group
+
+
+def remove_group(name: str) -> bool:
+    groups = list_groups()
+    new = [g for g in groups if g.get("name") != name]
+    if len(new) == len(groups):
+        return False
+    save_groups(new)
+    return True
+
+
+def set_group_enabled(name: str, enabled: bool) -> dict[str, Any]:
+    groups = list_groups()
+    for group in groups:
+        if group["name"] == name:
+            group["enabled"] = bool(enabled)
+            save_groups(groups)
+            return group
+    raise BridgeError(f"Gruppo non trovato: {name}")
+
+
+def set_group_device(group_name: str, device_identifier: str, assigned: bool) -> dict[str, Any]:
+    device = find_device(device_identifier)
+    if not device:
+        raise BridgeError("Dispositivo non trovato.")
+    groups = list_groups()
+    for group in groups:
+        if group["name"] == group_name:
+            members = set(group.get("device_ids", []))
+            if assigned:
+                members.add(device["device_id"])
             else:
-                allowed.discard(device_name)
-            s["allowed_devices"] = sorted(allowed)
-            save_services(items)
-            return s
+                members.discard(device["device_id"])
+            group["device_ids"] = sorted(members)
+            save_groups(groups)
+            return group
+    raise BridgeError(f"Gruppo non trovato: {group_name}")
+
+
+def set_group_service(group_name: str, service_name: str, allowed: bool) -> dict[str, Any]:
+    if not any(s["name"] == service_name for s in list_services()):
+        raise BridgeError(f"Servizio non trovato: {service_name}")
+    groups = list_groups()
+    for group in groups:
+        if group["name"] == group_name:
+            services = set(group.get("allowed_services", []))
+            if allowed:
+                services.add(service_name)
+            else:
+                services.discard(service_name)
+            group["allowed_services"] = sorted(services)
+            save_groups(groups)
+            return group
+    raise BridgeError(f"Gruppo non trovato: {group_name}")
+
+
+def groups_for_device(device: dict[str, Any], groups: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    source = groups if groups is not None else list_groups()
+    return [
+        g for g in source
+        if g.get("enabled", True) and device.get("device_id") in set(g.get("device_ids", []))
+    ]
+
+
+def set_device_access_override(service_name: str, device_identifier: str, decision: str) -> dict[str, Any]:
+    device = find_device(device_identifier)
+    if not device:
+        raise BridgeError("Dispositivo non trovato.")
+    if decision not in {"allow", "deny", "inherit"}:
+        raise BridgeError("Override non valido: usa allow, deny o inherit.")
+    services = list_services()
+    for service in services:
+        if service.get("name") != service_name:
+            continue
+        allowed = set(service.get("allowed_devices", []))
+        denied = set(service.get("denied_devices", []))
+        allowed.discard(device["name"])
+        denied.discard(device["name"])
+        if decision == "allow":
+            allowed.add(device["name"])
+        elif decision == "deny":
+            denied.add(device["name"])
+        service["allowed_devices"] = sorted(allowed)
+        service["denied_devices"] = sorted(denied)
+        save_services(services)
+        return service
     raise BridgeError(f"Servizio non trovato: {service_name}")
 
 
-def allowed_ips_for_service(service: dict[str, Any], devices: list[dict[str, Any]]) -> set[str]:
-    by_name = {d["name"]: d for d in devices if device_is_active(d)}
-    result: set[str] = set()
-    for name in service.get("allowed_devices", []):
-        if name in by_name:
-            result.add(by_name[name]["vpn_ip"])
-    return result
+def grant_device(service_name: str, device_name: str, grant: bool) -> dict[str, Any]:
+    return set_device_access_override(service_name, device_name, "allow" if grant else "deny")
+
+
+def service_access_source(
+    service: dict[str, Any],
+    device: dict[str, Any],
+    groups: list[dict[str, Any]] | None = None,
+) -> str:
+    if not device_is_active(device):
+        return "inactive"
+    name = device["name"]
+    if name in set(service.get("denied_devices", [])):
+        return "deny_override"
+    if name in set(service.get("allowed_devices", [])):
+        return "allow_override"
+    for group in groups_for_device(device, groups):
+        if service["name"] in set(group.get("allowed_services", [])):
+            return f"group:{group['name']}"
+    return "none"
+
+
+def service_allows_device(
+    service: dict[str, Any],
+    device: dict[str, Any],
+    groups: list[dict[str, Any]] | None = None,
+) -> bool:
+    return service_access_source(service, device, groups) in {"allow_override"} or service_access_source(service, device, groups).startswith("group:")
+
+
+def allowed_ips_for_service(
+    service: dict[str, Any],
+    devices: list[dict[str, Any]],
+    groups: list[dict[str, Any]] | None = None,
+) -> set[str]:
+    source_groups = groups if groups is not None else list_groups()
+    return {
+        d["vpn_ip"]
+        for d in devices
+        if service_allows_device(service, d, source_groups)
+    }
+
+
+def effective_services_for_device(
+    device: dict[str, Any],
+    services: list[dict[str, Any]] | None = None,
+    groups: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    source_services = services if services is not None else list_services()
+    source_groups = groups if groups is not None else list_groups()
+    return [
+        s for s in source_services
+        if s.get("enabled", True) and service_allows_device(s, device, source_groups)
+    ]

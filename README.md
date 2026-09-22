@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.21 — Fase 19: NAT Traversal P2P in verifica CI**.
+Versione corrente: **v0.21 — Fase 19 completata: NAT Traversal P2P**. La Fase 20 — Relay opzionale è la prossima e non è stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

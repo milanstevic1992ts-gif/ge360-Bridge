@@ -584,7 +584,7 @@ Chiusura verificata:
 - workflow Android non modificato e ultimo run su main verde;
 - nessun hole punching, port forwarding, modifica PUBLIC_ENDPOINT, relay o multi-server introdotto.
 
-## Fase 19 — NAT Traversal P2P — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
+## Fase 19 — NAT Traversal P2P — COMPLETATA
 
 Obiettivo: tentare una connessione WireGuard diretta tramite candidate exchange STUN e aggiornamento endpoint runtime, senza introdurre relay o port forwarding automatico.
 
@@ -635,7 +635,22 @@ Fuori scope Fase 19:
 
 Criterio di chiusura: CI Python e Android verdi, test handshake/fallback/guardrail verdi, Update Engine reale continua a costruire e passare preflight, nessun relay o funzione Fase 20 anticipata.
 
-## Fase 20 — Relay opzionale
+Chiusura verificata:
+- commit funzionale 15be3e784450027e4ecd28c759df39665093abc6;
+- CI Python run 35777074762 completata con successo, inclusi compileall, 149 test, bash -n, build pacchetto reale e preflight Update Engine;
+- CI Android run 35777074727 completata con successo, incluso :ge360-bridge-android:testDebugUnitTest;
+- autenticazione P2P device_id + device_token verificata;
+- candidate globali, candidate server PUBLIC_ENDPOINT/IPv6 e rate limit verificati;
+- session mirror runtime verificato senza peer_public_key o device_token;
+- handshake WireGuard nuovo verificato come condizione di SUCCEEDED;
+- fallimento handshake verifica restore endpoint runtime precedente;
+- stato conferma relay_available=false, relay_used=false e phase20_started=false;
+- Android STUN RFC5389/XOR-MAPPED-ADDRESS, ListenPort persistito e fallback direct verificati dalla suite Android;
+- AllowedIPs resta 10.88.0.1/32;
+- nessuna modifica persistente di devices.json/wg0.conf per i candidati;
+- nessun relay, TURN, port forwarding automatico, modifica PUBLIC_ENDPOINT o multi-server introdotto.
+
+## Fase 20 — Relay opzionale — PROSSIMA, NON AVVIATA
 
 Fallback self-hosted, opzionale e visibile solo quando direct/P2P falliscono.
 

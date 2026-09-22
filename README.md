@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.12 — Fase 10: Resource Launcher**.
+Versione corrente: **v0.12 — Fase 10 completata: Resource Launcher**. La Fase 11 è la prossima e non è ancora stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

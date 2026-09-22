@@ -203,7 +203,7 @@ Fuori scope Fase 9:
 
 Criterio di chiusura: test delta/aggregazione/retention/permessi e CI verdi.
 
-## Fase 10 — Resource Launcher — CORRENTE
+## Fase 10 — Resource Launcher — COMPLETATA
 
 Obiettivo: offrire a ogni device una home GE360 con soltanto le Resource che può realmente usare.
 
@@ -226,7 +226,7 @@ Fuori scope Fase 10:
 
 Criterio di chiusura: test ACL/launcher/segreti e CI verdi.
 
-## Fase 11 — Frontend SDK Android
+## Fase 11 — Frontend SDK Android — PROSSIMA, NON AVVIATA
 
 Modulo riutilizzabile per scan QR, enrollment, VPN, health, discovery e diagnostica.
 

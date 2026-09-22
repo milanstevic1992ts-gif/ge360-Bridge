@@ -65,6 +65,12 @@ class EnrollmentClient(
 
     private fun parseResult(result: JSONObject, invitation: PairingInvitation): EnrollmentResult {
         val wg = result.getJSONObject("wireguard")
+        val relayJson = result.optJSONObject("relay")
+        val relay = RelayInfo(
+            enabled = relayJson?.optBoolean("enabled", false) ?: false,
+            url = relayJson?.optString("url", "") ?: "",
+            tlsCertSha256 = relayJson?.optString("tls_cert_sha256", "") ?: ""
+        )
         return EnrollmentResult(
             deviceId = result.getString("device_id"),
             device = result.getString("device"),
@@ -81,7 +87,8 @@ class EnrollmentClient(
             runtimeSync = result.optBoolean("runtime_sync", false),
             resources = parseResources(result.optJSONArray("resources") ?: JSONArray()),
             controlUrl = URL(invitation.enrollmentUrl).let { "${it.protocol}://${it.authority}" },
-            tlsCertSha256 = invitation.tlsCertSha256
+            tlsCertSha256 = invitation.tlsCertSha256,
+            relay = relay
         )
     }
 

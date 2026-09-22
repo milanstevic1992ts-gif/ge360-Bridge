@@ -11,6 +11,7 @@ interface WireGuardKeyProvider {
 interface VpnController {
     fun state(): ConnectionState
     fun start(config: WireGuardConfig)
+    fun startTransient(config: WireGuardConfig) = start(config)
     fun stop()
 }
 
@@ -32,7 +33,11 @@ class BridgeSession(
             presharedKey = enrollment.presharedKey,
             endpoint = enrollment.endpoint,
             allowedIps = enrollment.allowedIps,
-            persistentKeepalive = enrollment.persistentKeepalive
+            persistentKeepalive = enrollment.persistentKeepalive,
+            deviceId = enrollment.deviceId,
+            deviceToken = enrollment.deviceToken,
+            relayUrl = if (enrollment.relay.enabled) enrollment.relay.url else "",
+            relayCertSha256 = if (enrollment.relay.enabled) enrollment.relay.tlsCertSha256 else ""
         )
         return ProvisionedBridge(enrollment, config)
     }
@@ -58,7 +63,7 @@ class BridgeSession(
             endpoint = plan.recommendedEndpoint,
             listenPort = plan.clientCandidate.localPort
         )
-        vpnController.start(p2pConfig)
+        vpnController.startTransient(p2pConfig)
         return plan
     }
 
@@ -70,6 +75,20 @@ class BridgeSession(
 
     fun fallbackToDirect(provisioned: ProvisionedBridge) {
         vpnController.start(provisioned.wireGuardConfig)
+    }
+
+    fun connectViaRelayAfterFailure(
+        provisioned: ProvisionedBridge,
+        reason: RelayFallbackReason,
+        relayClient: RelayFallbackClient = RelayFallbackClient()
+    ): RelayPlan {
+        val plan = relayClient.requestAndWait(provisioned.wireGuardConfig, reason)
+        val relayConfig = provisioned.wireGuardConfig.copy(
+            endpoint = plan.clientEndpoint,
+            listenPort = 0
+        )
+        vpnController.startTransient(relayConfig)
+        return plan
     }
 
     fun disconnect() = vpnController.stop()

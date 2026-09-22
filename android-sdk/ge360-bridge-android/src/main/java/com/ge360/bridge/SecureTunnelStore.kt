@@ -115,6 +115,10 @@ internal object TunnelConfigCodec {
             .put("allowed_ips", config.allowedIps)
             .put("persistent_keepalive", config.persistentKeepalive)
             .put("listen_port", config.listenPort)
+            .put("device_id", config.deviceId)
+            .put("device_token", config.deviceToken)
+            .put("relay_url", config.relayUrl)
+            .put("relay_cert_sha256", config.relayCertSha256)
             .toString()
 
     fun decode(text: String): WireGuardConfig {
@@ -127,7 +131,11 @@ internal object TunnelConfigCodec {
             endpoint = root.getString("endpoint"),
             allowedIps = root.getString("allowed_ips"),
             persistentKeepalive = root.getInt("persistent_keepalive"),
-            listenPort = root.optInt("listen_port", 0)
+            listenPort = root.optInt("listen_port", 0),
+            deviceId = root.optString("device_id", ""),
+            deviceToken = root.optString("device_token", ""),
+            relayUrl = root.optString("relay_url", ""),
+            relayCertSha256 = root.optString("relay_cert_sha256", "")
         )
     }
 }

@@ -20,6 +20,12 @@ class PairingInvitation(
         "PairingInvitation(enrollmentId=$enrollmentId, device=$device, enrollmentUrl=$enrollmentUrl, token=<redacted>, expiresAt=$expiresAt, tlsCertSha256=$tlsCertSha256)"
 }
 
+data class RelayInfo(
+    val enabled: Boolean = false,
+    val url: String = "",
+    val tlsCertSha256: String = ""
+)
+
 data class BridgeResource(
     val name: String,
     val icon: String,
@@ -47,7 +53,8 @@ class EnrollmentResult(
     val runtimeSync: Boolean,
     val resources: List<BridgeResource>,
     val controlUrl: String = "",
-    val tlsCertSha256: String = ""
+    val tlsCertSha256: String = "",
+    val relay: RelayInfo = RelayInfo()
 ) {
     override fun toString(): String =
         "EnrollmentResult(deviceId=$deviceId, device=$device, vpnIp=$vpnIp, presharedKey=<redacted>, deviceToken=<redacted>, bridgeIp=$bridgeIp, runtimeSync=$runtimeSync)"
@@ -68,7 +75,11 @@ data class WireGuardConfig(
     val endpoint: String,
     val allowedIps: String,
     val persistentKeepalive: Int,
-    val listenPort: Int = 0
+    val listenPort: Int = 0,
+    val deviceId: String = "",
+    val deviceToken: String = "",
+    val relayUrl: String = "",
+    val relayCertSha256: String = ""
 ) {
     fun asText(): String {
         val listenLine = if (listenPort in 1..65535) "ListenPort = $listenPort\n" else ""
@@ -86,8 +97,22 @@ data class WireGuardConfig(
     """.trimIndent()
     }
 
-    override fun toString(): String = "WireGuardConfig(privateKey=<redacted>, address=$address, endpoint=$endpoint, listenPort=$listenPort)"
+    override fun toString(): String = "WireGuardConfig(privateKey=<redacted>, address=$address, endpoint=$endpoint, listenPort=$listenPort, deviceId=$deviceId, deviceToken=<redacted>)"
 }
+
+enum class RelayFallbackReason(val wireValue: String) {
+    DIRECT_FAILED("direct_failed"),
+    P2P_FAILED("p2p_failed"),
+    CONTROL_UNREACHABLE("control_unreachable")
+}
+
+data class RelayPlan(
+    val sessionId: String,
+    val status: String,
+    val clientEndpoint: String,
+    val bridgeEndpoint: String,
+    val fallbackReason: RelayFallbackReason
+)
 
 data class TraversalCandidate(
     val ip: String,

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from . import core
+from .relay_client import relay_public_config
 
 PAIRING_PORT = 8790
 ENROLLMENTS_FILE = core.STATE_DIR / "enrollments.json"
@@ -213,6 +214,7 @@ def invitation_payload(record: dict[str, Any], token: str) -> dict[str, Any]:
             "allowed_ips": "10.88.0.1/32",
             "persistent_keepalive": 25,
         },
+        "relay": relay_public_config(),
     }
 
 
@@ -313,6 +315,7 @@ def consume_enrollment(enrollment_id: str, token: str, public_key: str) -> dict[
             "allowed_ips": "10.88.0.1/32",
             "persistent_keepalive": 25,
         },
+        "relay": relay_public_config(),
         "groups": list(record.get("groups", [])),
         "resources": [
             {

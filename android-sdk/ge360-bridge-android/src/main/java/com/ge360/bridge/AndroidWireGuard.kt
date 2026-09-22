@@ -213,6 +213,33 @@ class AndroidWireGuardController internal constructor(
         scheduleReconnect(forceCycle = false, immediate = true)
     }
 
+    override fun startTransient(config: WireGuardConfig) {
+        validateRestrictedRoute(config)
+        synchronized(lock) {
+            currentConfig = config
+            desiredConnected = true
+            retryAttempt = 0
+            lastErrorValue = null
+            store.setDesiredConnected(true)
+        }
+        if (requiresVpnPermission()) {
+            setState(ConnectionState.WAITING_PERMISSION)
+            return
+        }
+        scheduleReconnect(forceCycle = true, immediate = true)
+    }
+
+    fun connectStoredViaRelayAfterFailure(
+        reason: RelayFallbackReason,
+        relayClient: RelayFallbackClient = RelayFallbackClient()
+    ): RelayPlan {
+        val base = store.load()?.config ?: currentConfig
+            ?: throw IllegalStateException("Configurazione GE360 non disponibile")
+        val plan = relayClient.requestAndWait(base, reason)
+        startTransient(base.copy(endpoint = plan.clientEndpoint, listenPort = 0))
+        return plan
+    }
+
     override fun stop() {
         synchronized(lock) {
             desiredConnected = false
@@ -342,6 +369,10 @@ data class AndroidBridgeRuntime(
     fun vpnPermissionIntent(): Intent? = vpnController.vpnPermissionIntent()
     fun onVpnPermissionResult(granted: Boolean) = vpnController.onVpnPermissionResult(granted)
     fun restore() = vpnController.restoreLastTunnel()
+    fun connectStoredViaRelayAfterFailure(
+        reason: RelayFallbackReason,
+        relayClient: RelayFallbackClient = RelayFallbackClient()
+    ): RelayPlan = vpnController.connectStoredViaRelayAfterFailure(reason, relayClient)
     override fun close() = vpnController.close()
 }
 

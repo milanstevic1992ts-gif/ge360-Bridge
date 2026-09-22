@@ -22,6 +22,8 @@ ALLOWED_EVENTS = {
     "P2P_PREPARED",
     "P2P_SUCCEEDED",
     "P2P_FAILED",
+    "RELAY_ACTIVE",
+    "RELAY_FAILED",
 }
 
 

@@ -532,6 +532,24 @@ def restart_runtime(runner: Callable[[list[str]], subprocess.CompletedProcess[st
         results.append({"args": args, "returncode": proc.returncode, "error": (proc.stderr or "").strip()[:300]})
         if proc.returncode != 0:
             raise BridgeError("Restart runtime update fallito: systemctl " + " ".join(args))
+
+    relay_active = runner(["is-active", "--quiet", "ge360-bridge-relay-monitor.service"])
+    results.append({
+        "args": ["is-active", "--quiet", "ge360-bridge-relay-monitor.service"],
+        "returncode": relay_active.returncode,
+        "optional": True,
+        "error": (relay_active.stderr or "").strip()[:300],
+    })
+    if relay_active.returncode == 0:
+        relay_restart = runner(["restart", "ge360-bridge-relay-monitor.service"])
+        results.append({
+            "args": ["restart", "ge360-bridge-relay-monitor.service"],
+            "returncode": relay_restart.returncode,
+            "optional": True,
+            "error": (relay_restart.stderr or "").strip()[:300],
+        })
+        if relay_restart.returncode != 0:
+            raise BridgeError("Restart monitor relay update fallito.")
     return {"commands": results}
 
 

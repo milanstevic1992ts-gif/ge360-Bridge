@@ -186,11 +186,11 @@ class P2PTraversalTests(unittest.TestCase):
         self.assertEqual(result["endpoint_restore"], "previous_endpoint_restored")
         self.assertTrue(any("9.9.9.9:50000" in cmd for cmd in commands))
 
-    def test_status_explicitly_has_no_relay(self):
+    def test_status_reports_phase20_present_but_unconfigured_by_default(self):
         status = self.p2p.p2p_status()
         self.assertFalse(status["relay_available"])
         self.assertFalse(status["relay_used"])
-        self.assertFalse(status["phase20_started"])
+        self.assertTrue(status["phase20_started"])
 
     def test_traversal_can_be_disabled_from_bridge_env(self):
         self.core.BRIDGE_ENV.write_text(

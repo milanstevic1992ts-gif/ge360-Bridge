@@ -66,11 +66,17 @@ PUBLIC_ENDPOINT=CHANGE_ME:$WG_PORT
 CLIENT_DNS=
 PAIRING_PORT=$PAIRING_PORT
 TRAVERSAL_ENABLED=true
+RELAY_ENABLED=false
+RELAY_URL=
+RELAY_CERT_SHA256=
 ENV
 else
   echo "Configurazione esistente preservata: $STATE_DIR/bridge.env"
   grep -q '^PAIRING_PORT=' "$STATE_DIR/bridge.env" || echo "PAIRING_PORT=$PAIRING_PORT" >> "$STATE_DIR/bridge.env"
   grep -q '^TRAVERSAL_ENABLED=' "$STATE_DIR/bridge.env" || echo "TRAVERSAL_ENABLED=true" >> "$STATE_DIR/bridge.env"
+  grep -q '^RELAY_ENABLED=' "$STATE_DIR/bridge.env" || echo "RELAY_ENABLED=false" >> "$STATE_DIR/bridge.env"
+  grep -q '^RELAY_URL=' "$STATE_DIR/bridge.env" || echo "RELAY_URL=" >> "$STATE_DIR/bridge.env"
+  grep -q '^RELAY_CERT_SHA256=' "$STATE_DIR/bridge.env" || echo "RELAY_CERT_SHA256=" >> "$STATE_DIR/bridge.env"
 fi
 
 [[ -e "$STATE_DIR/services.json" ]] || printf '[]\n' > "$STATE_DIR/services.json"
@@ -120,6 +126,7 @@ install -m 644 "$ROOT_DIR/systemd/ge360-bridge-self-heal.service" /etc/systemd/s
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-self-heal.timer" /etc/systemd/system/ge360-bridge-self-heal.timer
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-backup.service" /etc/systemd/system/ge360-bridge-backup.service
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-backup.timer" /etc/systemd/system/ge360-bridge-backup.timer
+install -m 644 "$ROOT_DIR/systemd/ge360-bridge-relay-monitor.service" /etc/systemd/system/ge360-bridge-relay-monitor.service
 install -m 755 "$ROOT_DIR/scripts/apply-firewall.sh" /usr/local/sbin/ge360-bridge-firewall
 install -m 755 "$ROOT_DIR/scripts/boot-verify.sh" /usr/local/sbin/ge360-bridge-boot-verify
 
@@ -177,7 +184,7 @@ if [[ -n "$WAN4" ]]; then
 fi
 
 say "Installazione completata"
-echo "Versione: GE360 Bridge v0.21 - Fase 19 NAT Traversal P2P"
+echo "Versione: GE360 Bridge v0.22 - Fase 20 Relay opzionale"
 echo "Dashboard locale: http://127.0.0.1:8789"
 echo "Dashboard via Bridge: http://10.88.0.1:8789"
 echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
@@ -197,4 +204,6 @@ echo "Backup: sudo ge360-bridge backup-list | sudo ge360-bridge backup-create"
 echo "Update Engine: sudo ge360-bridge update-status | sudo ge360-bridge update-run https://... --sha256 <SHA256>"
 echo "NAT Discovery: ge360-bridge nat-discover"
 echo "P2P Traversal: sudo ge360-bridge p2p-status"
+echo "Relay opzionale: sudo ge360-bridge relay-status"
+echo "Relay monitor è installato ma NON abilitato finché RELAY_ENABLED=false."
 echo "I vecchi comandi service-* restano alias compatibili."

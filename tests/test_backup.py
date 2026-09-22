@@ -123,6 +123,25 @@ class BackupTests(unittest.TestCase):
         self.assertFalse(verified["contains_client_private_keys"])
         self.assertTrue(verified["contains_server_secrets"])
 
+    def test_optional_relay_token_is_backed_up_and_restored(self):
+        relay_token = self.state / "relay.token"
+        relay_token.write_text("relay-admin-secret\n", encoding="utf-8")
+        created = self.backup.create_backup(
+            now=datetime(2026, 9, 22, 10, 0, tzinfo=timezone.utc)
+        )
+        with tarfile.open(self.backups / created["backup"], "r:gz") as tf:
+            names = set(tf.getnames())
+        self.assertIn("state/relay.token", names)
+
+        relay_token.write_text("changed\n", encoding="utf-8")
+        restored = self.backup.restore_backup(
+            created["backup"],
+            apply=True,
+            create_safety_backup=False,
+        )
+        self.assertIn(str(relay_token), restored["restored"])
+        self.assertEqual(relay_token.read_text(encoding="utf-8"), "relay-admin-secret\n")
+
     def test_client_private_key_field_blocks_backup(self):
         devices = json.loads((self.state / "devices.json").read_text(encoding="utf-8"))
         devices[0]["private_key"] = "must-never-leave-client"

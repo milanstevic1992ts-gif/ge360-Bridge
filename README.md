@@ -1,94 +1,137 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.21 — Fase 19 completata: NAT Traversal P2P**. La Fase 20 — Relay opzionale è la prossima e non è stata avviata.
+Versione corrente: **v0.22 — Fase 20: Relay opzionale in verifica CI**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## NAT Traversal P2P
+## Ordine connessione
 
-GE360 Bridge può tentare un handshake WireGuard diretto usando candidate exchange STUN.
+```text
+Direct WireGuard
+  ↓ fallisce
+NAT Traversal P2P
+  ↓ fallisce / non disponibile
+Relay self-hosted opzionale
+```
 
-Lato server:
+Il relay non diventa il percorso predefinito.
+
+## Relay pubblico
+
+Su una macchina Linux pubblica:
 
 ```bash
-sudo ge360-bridge p2p-status
+sudo ./install-relay.sh --public-host relay.example.com
 ```
 
-Dashboard:
+Servizi/rete default:
 
 ```text
-/p2p
-/api/p2p
+HTTPS control: TCP 8792
+UDP sessioni: 40000-40199
+service: ge360-relay.service
 ```
 
-Control API autenticata:
+L'installer **non apre automaticamente firewall**.
+
+Il relay inoltra datagrammi WireGuard cifrati e non possiede private key, PSK, Resource o payload applicativi in chiaro.
+
+## Bridge
+
+Configurazione:
 
 ```text
-POST /v3/traversal/prepare
-POST /v3/traversal/status
+RELAY_ENABLED=true
+RELAY_URL=https://relay.example.com:8792
+RELAY_CERT_SHA256=<fingerprint>
 ```
 
-Il control path riusa HTTPS pairing sulla porta 8790 e lo stesso certificate pinning del QR v2.
+Il token admin del relay va in:
+
+```text
+/etc/ge360-bridge/relay.token
+```
+
+Poi:
+
+```bash
+sudo chmod 600 /etc/ge360-bridge/relay.token
+sudo systemctl enable --now ge360-bridge-relay-monitor.service
+```
+
+Il monitor è installato dagli update ma resta disabilitato per default.
+
+Stato:
+
+```bash
+sudo ge360-bridge relay-status
+sudo ge360-bridge relay-status --remote
+```
 
 ## Android
 
-Il SDK aggiunge:
+Fallback esplicito:
 
 ```kotlin
-val plan = session.connectPreferP2P(provisioned)
+session.connectViaRelayAfterFailure(
+    provisioned,
+    RelayFallbackReason.P2P_FAILED
+)
 ```
 
-Il client scopre il proprio candidato STUN usando una porta locale stabile, poi avvia WireGuard con la stessa `ListenPort`.
-
-Se STUN/control falliscono prima del tentativo, il SDK usa automaticamente il direct endpoint originale.
-
-Stato successivo:
+Dopo riavvio, usando la configurazione già cifrata con Android Keystore:
 
 ```kotlin
-val status = session.traversalStatus(provisioned, plan)
+runtime.connectStoredViaRelayAfterFailure(
+    RelayFallbackReason.CONTROL_UNREACHABLE
+)
 ```
 
-Fallback manuale dopo un tentativo fallito:
-
-```kotlin
-session.fallbackToDirect(provisioned)
-```
-
-## Sicurezza
+Motivi ammessi:
 
 ```text
-AllowedIPs = 10.88.0.1/32
-session TTL = 90s
-rate limit = 6 prepare/min/device
-relay = false
-endpoint peer = runtime only
+DIRECT_FAILED
+P2P_FAILED
+CONTROL_UNREACHABLE
 ```
 
-Il Bridge non scrive il candidato in `devices.json` o `wg0.conf`.
+P2P e relay usano configurazioni transient, quindi l'endpoint direct originale resta persistito.
 
-Le sessioni redatte visibili a CLI/dashboard stanno soltanto in:
+`AllowedIPs` rimane:
 
 ```text
-/run/ge360-bridge/p2p-sessions.json
+10.88.0.1/32
 ```
 
-e non contengono token, PSK o private key.
+## CGNAT
 
-## Limite CGNAT
+Android contatta il relay pubblico direttamente.
 
-STUN non fornisce signaling.
+Il Bridge interroga il relay tramite HTTPS **outbound**.
 
-Se server e client non hanno alcun control path HTTPS/IPv6/direct raggiungibile, Fase 19 non può scambiare i candidati e non può avviare il hole-punch.
+Quindi il fallback relay non richiede un control endpoint Internet inbound sul Bridge e può essere usato quando il Bridge è dietro CGNAT.
 
-Il fallback relay appartiene alla **Fase 20** e non è stato introdotto.
+## Dashboard
 
-## NAT Discovery, Update e Backup
+```text
+/relay
+/api/relay
+```
 
-Fase 18 NAT Discovery, Fase 17 Update Engine e Fase 16 Backup restano attive e separate.
+Il link relay viene mostrato nella dashboard soltanto dopo un P2P FAILED/ERROR o quando esiste una sessione relay attiva.
+
+## Single Bridge
+
+Fase 20 supporta un relay per un singolo Bridge.
+
+Il relay non aggrega server o Resource.
+
+Il control plane multi-server appartiene alla **Fase 21** e non è stato avviato.
 
 Vedi:
 
 ```text
+docs/RELAY.md
 docs/P2P_TRAVERSAL.md
 docs/NAT_DISCOVERY.md
 docs/UPDATE_ENGINE.md

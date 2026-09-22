@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from . import core
 from .pairing import PAIRING_PORT, TLS_CERT_FILE, consume_enrollment
 from .p2p import prepare_traversal, traversal_status
+from .relay_client import relay_config, sync_relay_devices
 
 MAX_BODY = 8192
 RATE_LIMIT = 20
@@ -103,6 +104,14 @@ class EnrollmentHandler(BaseHTTPRequestHandler):
                 result["runtime_sync"] = sync.returncode == 0
             except (OSError, subprocess.TimeoutExpired):
                 result["runtime_sync"] = False
+            if relay_config().get("configured"):
+                try:
+                    sync_relay_devices()
+                    result["relay_sync"] = True
+                except Exception:
+                    result["relay_sync"] = False
+            else:
+                result["relay_sync"] = False
             self.send_json({"ok": True, "result": result}, HTTPStatus.OK)
             return
 

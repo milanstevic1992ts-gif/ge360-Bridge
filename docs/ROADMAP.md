@@ -650,9 +650,59 @@ Chiusura verificata:
 - nessuna modifica persistente di devices.json/wg0.conf per i candidati;
 - nessun relay, TURN, port forwarding automatico, modifica PUBLIC_ENDPOINT o multi-server introdotto.
 
-## Fase 20 — Relay opzionale — PROSSIMA, NON AVVIATA
+## Fase 20 — Relay opzionale — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
 
-Fallback self-hosted, opzionale e visibile solo quando direct/P2P falliscono.
+Obiettivo: offrire un fallback WireGuard self-hosted quando direct/P2P falliscono, senza trasformare il relay in un control plane multi-server.
+
+Scope:
+- relay Linux separato ge360-relay;
+- installer dedicato install-relay.sh;
+- servizio ge360-relay.service;
+- HTTPS control port 8792 con certificato self-signed pin-nato;
+- token amministrativo root-only separato dai device token;
+- pool UDP default 40000-40199;
+- due porte UDP casuali e distinte per sessione: bridge-facing e client-facing;
+- inoltro byte-per-byte di datagrammi WireGuard cifrati;
+- nessuna private key/PSK/resource catalog sul relay;
+- registry relay persistente con device_id + SHA-256(device_token), mai token grezzi;
+- API admin /v1/admin/status, sync, requests e activate;
+- API device /v1/device/request e status;
+- fallback reason limitato a direct_failed, p2p_failed o control_unreachable;
+- source-IP guard best-effort sui due lati relay;
+- WAITING_BRIDGE max 120s, ACTIVE idle 90s, lifetime max 24h;
+- massimo default 50 sessioni;
+- Bridge outbound monitor ge360-bridge-relay-monitor.service;
+- monitor installato ma non abilitato automaticamente;
+- RELAY_ENABLED=false di default;
+- configurazione RELAY_URL e RELAY_CERT_SHA256 in bridge.env;
+- token admin Bridge in /etc/ge360-bridge/relay.token 0600;
+- sync device hash ogni 60s + sync best-effort dopo enrollment;
+- endpoint WireGuard peer modificato soltanto runtime con wg set;
+- Android riceve relay URL + TLS pin, mai admin token;
+- Android RelayFallbackReason tipizzato;
+- connectViaRelayAfterFailure e connectStoredViaRelayAfterFailure;
+- P2P e relay usano startTransient per preservare endpoint direct nello store cifrato;
+- device credentials/relay metadata persistiti nel blob Android Keystore;
+- dashboard /relay e /api/relay;
+- link relay nascosto finché P2P non fallisce o esiste una sessione relay attiva;
+- CLI relay-status, relay-sync, relay-run-once e monitor systemd;
+- audit RELAY_ACTIVE e RELAY_FAILED;
+- relay.token incluso opzionalmente nei backup Fase 16 senza invalidare backup storici;
+- CI shell valida anche install-relay.sh/ge360-relay;
+- test server relay, forwarding UDP opaco, auth hash-only, Bridge activation e Android fallback.
+
+Fuori scope Fase 20:
+- multi-server GE360;
+- Resource Registry sul relay;
+- decrypt WireGuard;
+- TURN/relay di terze parti;
+- auto-provisioning VPS;
+- apertura automatica firewall;
+- update remoto del nodo relay;
+- modifica persistente wg0.conf;
+- utilizzo relay come percorso primario.
+
+Criterio di chiusura: CI Python e Android verdi, forwarding UDP opaco verificato, registry senza token grezzi verificato, fallback transient Android verificato, backup relay token compatibile verificato, Update Engine reale ancora verde e nessuna funzione Fase 21 anticipata.
 
 ## Fase 21 — Multi-server GE360
 

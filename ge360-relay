@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export PYTHONPATH=/opt/ge360-relay${PYTHONPATH:+:$PYTHONPATH}
+exec python3 -m ge360_bridge.relay_server "$@"

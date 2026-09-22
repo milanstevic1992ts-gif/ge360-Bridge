@@ -530,6 +530,16 @@ def _audit(event: str, session: dict[str, Any], result: str, error: str | None =
 
 def p2p_status() -> dict[str, Any]:
     candidates = server_candidates()
+    try:
+        from .relay_client import local_relay_status
+        relay = local_relay_status()
+        relay_runtime = relay.get("runtime") or {}
+        relay_sessions = relay_runtime.get("active_sessions") or []
+        relay_available = bool(relay.get("configured"))
+        relay_used = bool(relay_sessions)
+    except Exception:
+        relay_available = False
+        relay_used = False
     return {
         "schema": "ge360-p2p-traversal-status/v1",
         "enabled": traversal_enabled(),
@@ -537,12 +547,12 @@ def p2p_status() -> dict[str, Any]:
         "rate_limit_per_device_per_minute": RATE_LIMIT_PER_DEVICE,
         "server_candidates": candidates,
         "sessions": list_sessions(),
-        "relay_available": False,
-        "relay_used": False,
-        "phase20_started": False,
+        "relay_available": relay_available,
+        "relay_used": relay_used,
+        "phase20_started": True,
         "limitations": [
-            "richiede un control path HTTPS raggiungibile per scambiare i candidati",
+            "P2P diretto richiede un control path raggiungibile per lo scambio candidati",
             "STUN non garantisce hole punching attraverso CGNAT o NAT destination-dependent",
-            "nessun relay e nessun port forwarding automatico",
+            "relay Fase 20 è opzionale e viene usato soltanto come fallback",
         ],
     }

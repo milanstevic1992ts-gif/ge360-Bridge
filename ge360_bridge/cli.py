@@ -59,6 +59,7 @@ from .backup import create_backup, list_backups, restore_backup, verify_backup
 from .update_engine import apply_update, download_update, preflight_update, run_update, update_status, verify_update
 from .nat_discovery import discover_nat
 from .p2p import p2p_status
+from .relay_client import local_relay_status, monitor_forever, monitor_once, relay_config, relay_remote_status, sync_relay_devices
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -481,6 +482,31 @@ def cmd_p2p_status(_: argparse.Namespace) -> None:
     print(json.dumps(p2p_status(), indent=2))
 
 
+def cmd_relay_status(args: argparse.Namespace) -> None:
+    result = local_relay_status()
+    if args.remote and relay_config().get("configured"):
+        try:
+            result["remote"] = relay_remote_status()
+        except BridgeError as exc:
+            result["remote_error"] = str(exc)
+    print(json.dumps(result, indent=2))
+
+
+def cmd_relay_sync(_: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps(sync_relay_devices(), indent=2))
+
+
+def cmd_relay_run_once(_: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps(monitor_once(), indent=2))
+
+
+def cmd_relay_monitor(_: argparse.Namespace) -> None:
+    must_root()
+    monitor_forever()
+
+
 def cmd_health_check(args: argparse.Namespace) -> None:
     resources = list_resources()
     if args.resource:
@@ -758,6 +784,19 @@ def parser() -> argparse.ArgumentParser:
 
     p2p = sub.add_parser("p2p-status", help="Fase 19: stato NAT Traversal P2P e sessioni runtime")
     p2p.set_defaults(func=cmd_p2p_status)
+
+    relay = sub.add_parser("relay-status", help="Fase 20: stato relay opzionale")
+    relay.add_argument("--remote", action="store_true", help="Interroga anche il nodo relay configurato")
+    relay.set_defaults(func=cmd_relay_status)
+
+    relay = sub.add_parser("relay-sync", help="Sincronizza hash device verso il relay configurato")
+    relay.set_defaults(func=cmd_relay_sync)
+
+    relay = sub.add_parser("relay-run-once", help="Esegue un singolo ciclo monitor relay")
+    relay.set_defaults(func=cmd_relay_run_once)
+
+    relay = sub.add_parser("relay-monitor", help=argparse.SUPPRESS)
+    relay.set_defaults(func=cmd_relay_monitor)
 
     h = sub.add_parser("health-check")
     h.add_argument("resource", nargs="?", help="Nome Resource; senza nome controlla tutte")

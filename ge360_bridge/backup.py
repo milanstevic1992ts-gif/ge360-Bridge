@@ -36,7 +36,12 @@ SOURCE_MAP: dict[str, Path] = {
     "wireguard/wg0.conf": core.WG_CONF,
 }
 
+OPTIONAL_SOURCE_MAP: dict[str, Path] = {
+    "state/relay.token": core.STATE_DIR / "relay.token",
+}
+ALL_SOURCE_MAP: dict[str, Path] = {**SOURCE_MAP, **OPTIONAL_SOURCE_MAP}
 REQUIRED_ARCHIVE_FILES = frozenset(SOURCE_MAP)
+ALLOWED_ARCHIVE_FILES = frozenset(ALL_SOURCE_MAP)
 FORBIDDEN_CLIENT_PRIVATE_KEYS = {
     "private_key",
     "client_private_key",
@@ -181,7 +186,7 @@ def validate_snapshot(files: dict[str, bytes]) -> dict[str, Any]:
     missing = sorted(REQUIRED_ARCHIVE_FILES - set(files))
     if missing:
         raise BridgeError("Backup incompleto, file mancanti: " + ", ".join(missing))
-    unexpected = sorted(set(files) - REQUIRED_ARCHIVE_FILES)
+    unexpected = sorted(set(files) - ALLOWED_ARCHIVE_FILES)
     if unexpected:
         raise BridgeError("Backup contiene file non previsti: " + ", ".join(unexpected))
 
@@ -209,6 +214,8 @@ def validate_snapshot(files: dict[str, bytes]) -> dict[str, Any]:
     ):
         if not files[name].strip():
             raise BridgeError(f"Backup contiene un segreto/config vuoto: {name}")
+    if "state/relay.token" in files and not files["state/relay.token"].strip():
+        raise BridgeError("Backup contiene relay.token vuoto.")
 
     return {
         "devices": len(devices),
@@ -234,6 +241,16 @@ def _snapshot_sources() -> dict[str, bytes]:
         files[archive_name] = data
     if missing:
         raise BridgeError("Configurazione incompleta, file mancanti: " + ", ".join(missing))
+    for archive_name, source in OPTIONAL_SOURCE_MAP.items():
+        try:
+            data = source.read_bytes()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise BridgeError(f"Impossibile leggere {source}: {exc}") from exc
+        if len(data) > MAX_FILE_BYTES:
+            raise BridgeError(f"File troppo grande per backup configurazione: {source}")
+        files[archive_name] = data
     validate_snapshot(files)
     return files
 
@@ -386,7 +403,7 @@ def _read_archive(path: Path) -> tuple[dict[str, Any], dict[str, bytes]]:
                     raise BridgeError(f"Backup contiene un membro non regolare: {member.name}")
                 if member.name in members:
                     raise BridgeError(f"Backup contiene un file duplicato: {member.name}")
-                if member.name != "manifest.json" and member.name not in REQUIRED_ARCHIVE_FILES:
+                if member.name != "manifest.json" and member.name not in ALLOWED_ARCHIVE_FILES:
                     raise BridgeError(f"Backup contiene un percorso non consentito: {member.name}")
                 if member.size < 0 or member.size > MAX_FILE_BYTES:
                     raise BridgeError(f"File backup troppo grande: {member.name}")
@@ -417,7 +434,7 @@ def _read_archive(path: Path) -> tuple[dict[str, Any], dict[str, bytes]]:
         if not isinstance(item, dict):
             raise BridgeError("Manifest backup non valido.")
         name = str(item.get("name") or "")
-        if name in declared_names or name not in REQUIRED_ARCHIVE_FILES:
+        if name in declared_names or name not in ALLOWED_ARCHIVE_FILES:
             raise BridgeError("Manifest backup contiene file duplicati/non consentiti.")
         declared_names.add(name)
         data = members.get(name)
@@ -505,7 +522,7 @@ def restore_backup(
         "backup": path.name,
         "verified": True,
         "apply": bool(apply),
-        "target_files": [str(SOURCE_MAP[name]) for name in sorted(files)],
+        "target_files": [str(ALL_SOURCE_MAP[name]) for name in sorted(files)],
         "summary": validation,
     }
     if not apply:
@@ -521,7 +538,7 @@ def restore_backup(
 
     restored: list[str] = []
     for name, data in sorted(files.items()):
-        target = SOURCE_MAP[name]
+        target = ALL_SOURCE_MAP[name]
         _atomic_restore_file(target, data)
         restored.append(str(target))
 

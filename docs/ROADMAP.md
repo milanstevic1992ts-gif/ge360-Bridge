@@ -255,9 +255,39 @@ Fuori scope Fase 11:
 
 Criterio di chiusura: CI Python verde + CI Android verde e test parser/configurazione.
 
-## Fase 12 — Connessione automatica Android — PROSSIMA, NON AVVIATA
+## Fase 12 — Connessione automatica Android — CORRENTE
 
-VPNService/WireGuard, reconnect e stati connessione integrati nelle APK.
+Obiettivo: trasformare i contratti Android della Fase 11 in una connessione WireGuard realmente utilizzabile e ripristinabile dalle APK.
+
+Scope obbligatorio:
+- libreria WireGuard Android ufficiale;
+- GoBackend userspace senza root;
+- AndroidWireGuardKeyProvider;
+- AndroidWireGuardController;
+- consenso Android VpnService tramite intent di sistema;
+- stati DISCONNECTED, WAITING_PERMISSION, CONNECTING, CONNECTED, RECONNECTING, ERROR;
+- reconnect su perdita/cambio rete;
+- backoff limitato;
+- recupero da distruzione del VpnService;
+- supporto Always-On callback del backend;
+- persistenza cifrata della configurazione con Android Keystore;
+- ripristino automatico quando desiredConnected=true;
+- disconnect senza perdita configurazione;
+- forget con eliminazione configurazione;
+- AllowedIPs rigidamente limitato a 10.88.0.1/32;
+- Network Security Config per accesso HTTP al Bridge privato;
+- factory Ge360AndroidBridge per integrazione semplice nelle APK;
+- test Kotlin per chiavi, configurazione WireGuard, stati, backoff e codec;
+- CI Python e Android verdi.
+
+Fuori scope Fase 12:
+- /.well-known/ge360;
+- backend auto-discovery;
+- Linux Agent;
+- self-healing server;
+- NAT discovery/traversal.
+
+Criterio di chiusura: CI Python verde + CI Android verde, configurazione accettata dal parser WireGuard ufficiale e nessuna funzione Fase 13 anticipata.
 
 ## Fase 13 — Auto discovery backend
 

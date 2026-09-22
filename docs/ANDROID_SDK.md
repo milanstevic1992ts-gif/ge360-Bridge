@@ -44,7 +44,7 @@ Contratto riutilizzabile:
 - start;
 - stop.
 
-L'implementazione Android automatica appartiene alla Fase 12.
+Il contratto è stato implementato nella Fase 12 tramite `AndroidWireGuardController`.
 
 ### BridgeApiClient
 
@@ -92,6 +92,16 @@ Criteri verificati:
 - segreti redatti nei modelli sensibili;
 - nessuna implementazione automatica di VpnService/reconnect introdotta.
 
-## Fuori scope
+## Evoluzione Fase 12
 
-VpnService Android, reconnect automatico e persistenza sicura della configurazione appartengono alla Fase 12, non avviata.
+La Fase 12 implementa il lato runtime Android descritto in:
+
+```text
+docs/ANDROID_CONNECTION.md
+```
+
+Sono stati aggiunti VpnService/WireGuard, reconnect, stati connessione e persistenza cifrata.
+
+## Fuori scope corrente
+
+Backend auto-discovery e `/.well-known/ge360` appartengono alla Fase 13.

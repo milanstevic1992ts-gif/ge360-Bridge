@@ -1,4 +1,4 @@
-# GE360 Bridge Android SDK — Fase 11 completata
+# GE360 Bridge Android SDK — Fase 12
 
 Modulo:
 
@@ -6,71 +6,70 @@ Modulo:
 android-sdk/ge360-bridge-android
 ```
 
-## Funzioni Fase 11
+## Funzioni completate
 
-- decode QR v2 da `Bitmap` con ZXing;
-- parse payload pairing v2;
-- HTTPS enrollment con certificate pinning SHA-256;
-- il server riceve solo la public key client;
-- generazione chiavi delegata a `WireGuardKeyProvider`;
-- creazione configurazione WireGuard;
-- contratto `VpnController`;
-- stato connessione;
-- client `/v1/status`;
-- discovery `/v1/resources`;
-- diagnostica SDK leggera;
-- modelli Resource.
+Fase 11:
 
-## Esempio
+- QR pairing v2;
+- certificate pinning;
+- enrollment;
+- Resource discovery;
+- diagnostica SDK.
 
-```kotlin
-val session = BridgeSession(
-    keyProvider = myWireGuardKeyProvider,
-    vpnController = myVpnController
-)
+Fase 12:
 
-val provisioned = session.provision(qrPayload)
-session.connect(provisioned)
+- backend WireGuard ufficiale;
+- `AndroidWireGuardKeyProvider`;
+- `AndroidWireGuardController`;
+- Android VpnService permission flow;
+- reconnect Wi-Fi/mobile;
+- backoff;
+- stati connessione;
+- configurazione tunnel cifrata con Android Keystore;
+- auto-restore;
+- Network Security Config per il Bridge privato.
 
-val resources = session.resources()
-val diagnostics = session.diagnostics()
-```
-
-## Scanner QR
-
-Da una `Bitmap`:
+## Setup
 
 ```kotlin
-val invitation = QrPairingScanner.decode(bitmap)
+val ge360 = Ge360AndroidBridge.create(context)
+val provisioned = ge360.session.provision(qrPayload)
+ge360.session.connect(provisioned)
+
+ge360.vpnPermissionIntent()?.let { intent ->
+    // avvia il launcher ActivityResult per il consenso VPN
+}
 ```
 
-Oppure, se l'app usa già un proprio scanner camera, passa il testo a:
+Dopo il consenso:
 
 ```kotlin
-QrPairingParser.parse(rawQr)
+ge360.onVpnPermissionResult(true)
 ```
 
-## Confine Fase 11/12
-
-In Fase 11 l'SDK **non avvia autonomamente Android VpnService** e non impone un backend WireGuard.
-
-Espone invece:
-
-```kotlin
-interface WireGuardKeyProvider
-interface VpnController
-```
-
-La Fase 12 implementerà questi contratti per connessione automatica, reconnect e gestione VPN Android. La Fase 12 non è stata avviata.
-
-## Cleartext privato
-
-Gli endpoint `10.88.0.1` sono HTTP dentro il tunnel WireGuard. L'app host deve consentire il traffico cleartext **solo per il Bridge privato** tramite Network Security Config. La Fase 12 fornirà questa configurazione nell'integrazione Android.
-
-## Test
-
-La workflow GitHub `Android SDK` installa Android SDK 35 e compila:
+## Stati
 
 ```text
-:ge360-bridge-android:testDebugUnitTest
+DISCONNECTED
+WAITING_PERMISSION
+CONNECTING
+CONNECTED
+RECONNECTING
+ERROR
 ```
+
+## Sicurezza
+
+Il tunnel resta ristretto a:
+
+```text
+10.88.0.1/32
+```
+
+Private key e PSK vengono persistite solo cifrate con Android Keystore.
+
+## Confine Fase 12/13
+
+La Fase 12 non implementa `/.well-known/ge360` né auto-discovery backend.
+
+La Fase 13 resta separata.

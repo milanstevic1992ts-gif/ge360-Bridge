@@ -1,38 +1,46 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.13 — Fase 11 completata: Frontend SDK Android**. La Fase 12 è la prossima e non è ancora stata avviata.
+Versione corrente: **v0.14 — Fase 12: Connessione automatica Android**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## Android SDK
+## Android automatic connection
 
-Modulo riutilizzabile:
+Il modulo `ge360-bridge-android` ora integra:
+
+- WireGuard Android ufficiale;
+- `GoBackend`;
+- Android VpnService;
+- consenso VPN;
+- reconnect;
+- backoff;
+- stato connessione;
+- auto-restore;
+- persistenza cifrata Android Keystore.
+
+Il tunnel resta limitato a:
 
 ```text
-android-sdk/ge360-bridge-android
+10.88.0.1/32
 ```
 
-Include:
+## Integrazione
 
-- QR scanner/parser v2;
-- enrollment con TLS certificate pinning;
-- WireGuard config;
-- `WireGuardKeyProvider`;
-- `VpnController`;
-- stato connessione;
-- status/health;
-- Resource discovery;
-- diagnostica SDK.
+```kotlin
+val ge360 = Ge360AndroidBridge.create(context)
+val provisioned = ge360.session.provision(qrPayload)
+ge360.session.connect(provisioned)
+```
 
-La connessione Android automatica tramite VpnService appartiene alla Fase 12, che non è stata avviata.
+Se Android richiede il consenso VPN, usa `ge360.vpnPermissionIntent()` e passa l'esito a `ge360.onVpnPermissionResult(...)`.
 
-## CI
+## Fase successiva
 
-La repository ora ha anche una workflow **Android SDK** che compila e testa il modulo.
+L'auto-discovery backend `/.well-known/ge360` appartiene alla Fase 13 e non è stato implementato.
 
 Vedi:
 
 ```text
+docs/ANDROID_CONNECTION.md
 android-sdk/README.md
-docs/ANDROID_SDK.md
 ```

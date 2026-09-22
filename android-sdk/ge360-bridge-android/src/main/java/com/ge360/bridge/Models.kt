@@ -92,8 +92,10 @@ data class ProvisionedBridge(
 
 enum class ConnectionState {
     DISCONNECTED,
+    WAITING_PERMISSION,
     CONNECTING,
     CONNECTED,
+    RECONNECTING,
     ERROR
 }
 

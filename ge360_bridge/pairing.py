@@ -295,7 +295,7 @@ def consume_enrollment(enrollment_id: str, token: str, public_key: str) -> dict[
         record["device_id"] = device.device_id
         _save_enrollments(items)
 
-    effective = core.effective_services_for_device(device.__dict__)
+    effective = core.effective_resources_for_device(device.__dict__)
     env = load_bridge_env()
     return {
         "schema": "ge360-bridge-enrollment-response/v2",
@@ -313,8 +313,19 @@ def consume_enrollment(enrollment_id: str, token: str, public_key: str) -> dict[
             "persistent_keepalive": 25,
         },
         "groups": list(record.get("groups", [])),
+        "resources": [
+            {
+                "name": r["name"],
+                "icon": r.get("icon","server"),
+                "description": r.get("description",""),
+                "protocol": r.get("protocol","tcp"),
+                "bridge_port": r["bridge_port"],
+                "url": f"http://10.88.0.1:{r['bridge_port']}",
+            }
+            for r in effective
+        ],
         "services": [
-            {"name": s["name"], "url": f"http://10.88.0.1:{s['listen_port']}"}
-            for s in effective
+            {"name": r["name"], "url": f"http://10.88.0.1:{r['bridge_port']}"}
+            for r in effective
         ],
     }

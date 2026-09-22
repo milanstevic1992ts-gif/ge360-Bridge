@@ -17,11 +17,11 @@ from urllib.parse import parse_qs, urlparse
 from .cli import DEFAULT_SERVER_VPN_IP, bundle_for, endpoint, load_env, make_client_conf, reload_runtime, render_wg_config
 from .core import (
     BridgeError, Device, create_group, device_is_expired, effective_services_for_device,
-    find_device, find_group, list_devices, list_groups, list_services, new_device_id,
-    next_device_ip, normalize_tags, random_token, register_service, remove_group,
-    remove_service, rename_device, save_devices, service_access_source,
+    find_device, find_group, find_resource, list_devices, list_groups, list_resources, list_services, new_device_id,
+    next_device_ip, normalize_tags, random_token, register_resource, register_service, remove_group,
+    remove_resource, remove_service, rename_device, save_devices, service_access_source,
     set_device_access_override, set_device_enabled, set_group_device, set_group_enabled,
-    set_group_service, update_device_metadata, utc_now_iso, validate_device_type,
+    set_group_service, update_device_metadata, update_resource, utc_now_iso, validate_device_type,
     validate_expiry, validate_name, wg_keypair,
 )
 from .pairing import create_pairing_payload, list_enrollments
@@ -100,7 +100,7 @@ def human_bytes(value: int) -> str:
 def status_data() -> dict:
     peers = wg_state()
     groups = list_groups()
-    services = list_services()
+    services = list_resources()
     devices = []
     for d in list_devices():
         peer = peers.get(d.get("public_key", ""), {})
@@ -129,6 +129,7 @@ def status_data() -> dict:
         "bridge": {"vpn_ip":DEFAULT_SERVER_VPN_IP,"wg_port":int(env.get("WG_PORT","51820")),"public_endpoint":endpoint()},
         "devices": devices,
         "groups": groups,
+        "resources": service_rows,
         "services": service_rows,
         "counts": {
             "devices": len(devices),
@@ -274,14 +275,15 @@ def dashboard_page(error:str="")->str:
             src=service_access_source(service,d,all_groups)
             if src!="none" and src!="inactive":
                 access.append(f"{d['name']}={src}")
-        sv.append(f"<tr><td><b>{esc(service['name'])}</b><div class='m mono'>{esc(service['bridge_url'])}</div></td><td><span class='dot {'ok' if service['target_reachable'] else ''}'></span>{'OK' if service['target_reachable'] else 'Down'}<div class='m mono'>{esc(service['target'])}</div></td><td>{'<br>'.join(esc(x) for x in access) or '—'}</td></tr>")
+        sv.append(f"<tr><td><b>{esc(service.get('icon','server'))} {esc(service['name'])}</b><div class='m'>{esc(service.get('description',''))}</div></td><td><b>{esc(service.get('protocol','tcp').upper())}</b><div class='m mono'>10.88.0.1:{esc(service['bridge_port'])}</div></td><td><span class='dot {'ok' if service['target_reachable'] else ''}'></span>{'TCP OK' if service['target_reachable'] else 'TCP Down'}<div class='m mono'>{esc(service['target'])}</div><div class='m'>health: {esc(service.get('health_url') or '—')} · timeout {esc(service.get('timeout_seconds',2.0))}s</div></td><td>{'<br>'.join(esc(x) for x in access) or '—'}</td><td><a class='btn small' href='/resource/{esc(service['name'])}'>Gestisci</a></td></tr>")
     service_checks="".join(f"<label><input type='checkbox' name='service' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in services) or "—"
     group_checks="".join(f"<label><input type='checkbox' name='group' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in groups if x.get("enabled",True)) or "—"
-    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 3 · Pairing sicuro v2</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
-<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['groups']}</div><div class='m'>gruppi</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>backend attivi</div></div><div class='card'><div class='n'>v0.5</div><div class='m'>Pairing v2</div></div></div>
+    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 4 · Resource Registry</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
+<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['groups']}</div><div class='m'>gruppi</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>backend attivi</div></div><div class='card'><div class='n'>v0.6</div><div class='m'>Resource Registry</div></div></div>
 <div class='panel'><h2>Dispositivi</h2><div class='tw'><table><tr><th>Device</th><th>Stato</th><th>Gruppi</th><th>Accesso effettivo</th><th>Handshake</th><th></th></tr>{''.join(dr) or '<tr><td colspan=6>Nessun device</td></tr>'}</table></div></div>
-<div class='panel'><h2>Gruppi</h2><div class='tw'><table><tr><th>Gruppo</th><th>Device</th><th>Servizi</th><th>Stato</th><th></th></tr>{''.join(gr) or '<tr><td colspan=5>Nessun gruppo</td></tr>'}</table></div></div>
-<div class='panel'><h2>Servizi e ACL effettive</h2><div class='tw'><table><tr><th>Servizio</th><th>Backend</th><th>Sorgente accesso</th></tr>{''.join(sv) or '<tr><td colspan=3>Nessun servizio</td></tr>'}</table></div></div>
+<div class='panel'><h2>Gruppi</h2><div class='tw'><table><tr><th>Gruppo</th><th>Device</th><th>Resource</th><th>Stato</th><th></th></tr>{''.join(gr) or '<tr><td colspan=5>Nessun gruppo</td></tr>'}</table></div></div>
+<div class='panel'><h2>Resource Registry e ACL effettive</h2><div class='tw'><table><tr><th>Resource</th><th>Protocollo / Bridge</th><th>Target / Health</th><th>ACL</th><th></th></tr>{''.join(sv) or '<tr><td colspan=5>Nessuna Resource</td></tr>'}</table></div></div>
+<div class='panel'><h2>Registra Resource</h2><form method='post' action='/resource/add'><div class='forms'><div class='box'><label>Nome</label><input name='name' placeholder='rilievi' required><label>Icona</label><input name='icon' value='server'><label>Descrizione</label><textarea name='description'></textarea><label>Protocollo</label><select name='protocol'><option value='http'>HTTP</option><option value='https'>HTTPS</option><option value='tcp'>TCP</option></select></div><div class='box'><label>Bridge port</label><input type='number' name='bridge_port' min='1' max='65535' required><label>Target host</label><input name='target_host' value='127.0.0.1' required><label>Target port</label><input type='number' name='target_port' min='1' max='65535' required><label>Health URL/path opzionale</label><input name='health_url' placeholder='/healthz'><label>Timeout secondi</label><input type='number' name='timeout' min='0.1' max='30' step='0.1' value='2.0'><p><button class='primary'>Registra Resource</button></p></div></div></form></div>
 <div class='panel forms'><div class='box'><h3>Crea gruppo</h3><form method='post' action='/group/create'><label>Nome</label><input name='name' placeholder='amministratori' required><label>Descrizione</label><textarea name='description'></textarea><p><button class='primary'>Crea gruppo</button></p></form></div>
 <div class='box'><h3>Pairing sicuro v2</h3><form method='post' action='/device/add'><label>Nome device</label><input name='name' required><label>Tipo</label><select name='device_type'><option>android</option><option>tablet</option><option>linux</option><option>windows</option><option>server</option><option selected>unknown</option></select><label>Proprietario</label><input name='owner'><label>Tag</label><input name='tags'><label>Scadenza device</label><input type='date' name='expires_at'><label>Gruppi iniziali</label><div class='checks'>{group_checks}</div><label>TTL token</label><select name='ttl'><option value='300'>5 minuti</option><option value='600' selected>10 minuti</option><option value='1800'>30 minuti</option><option value='86400'>24 ore</option></select><p><button class='primary'>Genera QR v2 monouso</button></p></form></div></div>
 <div class='panel row'><a class='btn' href='/api/status'>JSON</a><a class='btn' href='/logout'>Esci</a></div></div>"""
@@ -302,7 +304,7 @@ def device_page(identifier:str,error:str="")->str:
     tags=",".join(d.get("tags",[])); selected=lambda x:" selected" if d.get("device_type")==x else ""
     body=f"""<div class='w'><div class='top'><div><h1>{esc(d['name'])}</h1><div class='m mono'>{esc(d['device_id'])}</div></div><a class='btn' href='/'>← Dashboard</a></div>{banner}
 <div class='panel'><h2>Gruppi</h2>{group_controls}</div>
-<div class='panel'><h2>ACL effettive e override</h2><table><tr><th>Servizio</th><th>Sorgente</th><th>Override device</th></tr>{''.join(acl)}</table></div>
+<div class='panel'><h2>ACL effettive e override</h2><table><tr><th>Resource</th><th>Sorgente</th><th>Override device</th></tr>{''.join(acl)}</table></div>
 <div class='panel detail'><div><h2>Metadati</h2><form method='post' action='/device/update'><input type='hidden' name='device_id' value='{esc(d['device_id'])}'><label>Nome</label><input name='name' value='{esc(d['name'])}'><label>Tipo</label><select name='device_type'><option{selected('android')}>android</option><option{selected('tablet')}>tablet</option><option{selected('linux')}>linux</option><option{selected('windows')}>windows</option><option{selected('server')}>server</option><option{selected('unknown')}>unknown</option></select><label>Proprietario</label><input name='owner' value='{esc(d.get('owner',''))}'><label>Scadenza</label><input type='date' name='expires_at' value='{esc(d.get('expires_at') or '')}'><label>Tag</label><input name='tags' value='{esc(tags)}'><label>Note</label><textarea name='notes'>{esc(d.get('notes',''))}</textarea><p><button class='primary'>Salva</button></p></form></div>
 <div><h2>Stato</h2><p>{'Abilitato' if d.get('enabled',True) else 'Disabilitato'}</p><form method='post' action='/device/toggle'><input type='hidden' name='device_id' value='{esc(d['device_id'])}'><input type='hidden' name='enabled' value='{'0' if d.get('enabled',True) else '1'}'><button class='{'danger' if d.get('enabled',True) else 'primary'}'>{'Disabilita' if d.get('enabled',True) else 'Abilita'}</button></form></div></div></div>"""
     return shell(body,d["name"])
@@ -318,9 +320,22 @@ def group_page(name:str,error:str="")->str:
     svc_rows="".join(f"<tr><td>{esc(s['name'])}</td><td>{'Consentito' if s['name'] in allowed else '—'}</td><td><form method='post' action='/group/service'><input type='hidden' name='group' value='{esc(g['name'])}'><input type='hidden' name='service' value='{esc(s['name'])}'><button class='small' name='allowed' value='{'0' if s['name'] in allowed else '1'}'>{'Revoca' if s['name'] in allowed else 'Consenti'}</button></form></td></tr>" for s in services)
     body=f"""<div class='w'><div class='top'><div><h1>Gruppo {esc(g['name'])}</h1><div class='m'>{esc(g.get('description',''))}</div></div><a class='btn' href='/'>← Dashboard</a></div>{banner}
 <div class='panel'><h2>Dispositivi</h2><table><tr><th>Device</th><th>Stato</th><th></th></tr>{dev_rows}</table></div>
-<div class='panel'><h2>Servizi del gruppo</h2><table><tr><th>Servizio</th><th>Accesso</th><th></th></tr>{svc_rows}</table></div>
+<div class='panel'><h2>Resource del gruppo</h2><table><tr><th>Resource</th><th>Accesso</th><th></th></tr>{svc_rows}</table></div>
 <div class='panel row'><form method='post' action='/group/toggle'><input type='hidden' name='group' value='{esc(g['name'])}'><input type='hidden' name='enabled' value='{'0' if g.get('enabled',True) else '1'}'><button>{'Disabilita gruppo' if g.get('enabled',True) else 'Abilita gruppo'}</button></form><form method='post' action='/group/remove'><input type='hidden' name='group' value='{esc(g['name'])}'><button class='danger'>Elimina gruppo</button></form></div></div>"""
     return shell(body,g["name"])
+
+
+def resource_page(name:str,error:str="")->str:
+    r=find_resource(name)
+    if not r:
+        return shell("<div class='w panel'>Resource non trovata</div>")
+    banner=f"<div class='msg err'>{esc(error)}</div>" if error else ""
+    selected=lambda x:" selected" if r.get("protocol","tcp")==x else ""
+    checked="checked" if r.get("enabled",True) else ""
+    body=f"""<div class='w'><div class='top'><div><h1>{esc(r.get('icon','server'))} {esc(r['name'])}</h1><div class='m'>Resource Registry</div></div><a class='btn' href='/'>← Dashboard</a></div>{banner}
+<div class='panel'><form method='post' action='/resource/update'><input type='hidden' name='name' value='{esc(r['name'])}'><div class='forms'><div class='box'><label>Icona</label><input name='icon' value='{esc(r.get('icon','server'))}'><label>Descrizione</label><textarea name='description'>{esc(r.get('description',''))}</textarea><label>Protocollo</label><select name='protocol'><option value='tcp'{selected('tcp')}>TCP</option><option value='http'{selected('http')}>HTTP</option><option value='https'{selected('https')}>HTTPS</option></select><label>Abilitata</label><input type='checkbox' name='enabled' value='1' {checked}></div><div class='box'><label>Bridge port</label><input type='number' name='bridge_port' value='{esc(r['bridge_port'])}' required><label>Target host</label><input name='target_host' value='{esc(r['target_host'])}' required><label>Target port</label><input type='number' name='target_port' value='{esc(r['target_port'])}' required><label>Health URL/path</label><input name='health_url' value='{esc(r.get('health_url',''))}'><label>Timeout secondi</label><input type='number' min='0.1' max='30' step='0.1' name='timeout' value='{esc(r.get('timeout_seconds',2.0))}'><p><button class='primary'>Salva Resource</button></p></div></div></form></div>
+<div class='panel row'><div><b>ACL dirette</b><div class='m'>allow: {esc(', '.join(r.get('allowed_devices',[])) or '—')} · deny: {esc(', '.join(r.get('denied_devices',[])) or '—')}</div></div><form method='post' action='/resource/remove'><input type='hidden' name='name' value='{esc(r['name'])}'><button class='danger'>Rimuovi Resource</button></form></div></div>"""
+    return shell(body,r["name"])
 
 
 def pairing_page(name:str,payload)->str:
@@ -334,7 +349,7 @@ def pairing_page(name:str,payload)->str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version="GE360BridgeDashboard/0.5"
+    server_version="GE360BridgeDashboard/0.6"
     def log_message(self,fmt,*args): print(f"[dashboard] {self.client_address[0]} {fmt % args}")
     def send_body(self,body,status=200,content_type="text/html; charset=utf-8",headers=None):
         data=body.encode() if isinstance(body,str) else body
@@ -364,6 +379,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path=="/api/status": self.send_body(json.dumps(status_data(),indent=2),200,"application/json")
         elif path.startswith("/device/"): self.send_body(device_page(path.split("/",2)[2]))
         elif path.startswith("/group/"): self.send_body(group_page(path.split("/",2)[2]))
+        elif path.startswith("/resource/"): self.send_body(resource_page(path.split("/",2)[2]))
         elif path.startswith("/pairing/"):
             name=path.split("/",2)[2]; payload=load_pairing(name)
             self.send_body(pairing_page(name,payload),200) if payload else self.send_body(dashboard_page("Pairing scaduto."),404)
@@ -414,6 +430,39 @@ class Handler(BaseHTTPRequestHandler):
                 render_wg_config(); reload_runtime(); self.redirect(f"/device/{did}"); return
             if path=="/device/toggle":
                 did=(f.get("device_id") or [""])[0]; set_device_enabled(did,(f.get("enabled") or ["0"])[0]=="1"); render_wg_config(); reload_runtime(); self.redirect(f"/device/{did}"); return
+            if path=="/resource/add":
+                register_resource(
+                    (f.get("name") or [""])[0].strip(),
+                    int((f.get("bridge_port") or ["0"])[0]),
+                    (f.get("target_host") or ["127.0.0.1"])[0],
+                    int((f.get("target_port") or ["0"])[0]),
+                    [],
+                    icon=(f.get("icon") or ["server"])[0],
+                    description=(f.get("description") or [""])[0],
+                    protocol=(f.get("protocol") or ["tcp"])[0],
+                    health_url=(f.get("health_url") or [""])[0],
+                    timeout_seconds=float((f.get("timeout") or ["2.0"])[0]),
+                )
+                reload_runtime(); self.redirect("/"); return
+            if path=="/resource/update":
+                name=(f.get("name") or [""])[0]
+                update_resource(
+                    name,
+                    icon=(f.get("icon") or ["server"])[0],
+                    description=(f.get("description") or [""])[0],
+                    protocol=(f.get("protocol") or ["tcp"])[0],
+                    bridge_port=int((f.get("bridge_port") or ["0"])[0]),
+                    target_host=(f.get("target_host") or ["127.0.0.1"])[0],
+                    target_port=int((f.get("target_port") or ["0"])[0]),
+                    health_url=(f.get("health_url") or [""])[0],
+                    timeout_seconds=float((f.get("timeout") or ["2.0"])[0]),
+                    enabled=(f.get("enabled") or ["0"])[0]=="1",
+                )
+                reload_runtime(); self.redirect(f"/resource/{name}"); return
+            if path=="/resource/remove":
+                name=(f.get("name") or [""])[0]
+                if not remove_resource(name): raise BridgeError("Resource non trovata.")
+                reload_runtime(); self.redirect("/"); return
             if path=="/service/add":
                 register_service((f.get("name") or [""])[0].strip(),int((f.get("bridge_port") or ["0"])[0]),(f.get("target_host") or ["127.0.0.1"])[0],int((f.get("target_port") or ["0"])[0]),[x for x in f.get("allow",[]) if x]); reload_runtime(); self.redirect("/"); return
             if path=="/service/remove":

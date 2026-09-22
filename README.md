@@ -1,28 +1,20 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.5 — Fase 3 completata: Pairing sicuro v2**. La Fase 4 è la prossima e non è ancora stata avviata.
+Versione corrente: **v0.6 — Fase 4: Resource Registry**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## Cosa cambia in v0.5
+## Resource Registry
 
-Per i nuovi device il Bridge non genera più la private key WireGuard.
+Da v0.6 il registro autoritativo dei backend è:
 
 ```text
-Dashboard / CLI
-      ↓
-token monouso + QR v2
-      ↓
-client genera private key
-      ↓
-HTTPS :8790
-      ↓
-invia solo public key
-      ↓
-Bridge crea il device
+/etc/ge360-bridge/resources.json
 ```
 
-Il token viene salvato solo come HMAC/hash e diventa inutilizzabile dopo il primo enrollment valido.
+Ogni Resource descrive nome, icona, descrizione, protocollo, bridge port, target locale, health URL, timeout e ACL.
+
+Il vecchio `services.json` resta come mirror di compatibilità e i comandi `service-*` continuano a funzionare.
 
 ## Aggiornamento
 
@@ -32,68 +24,36 @@ git pull
 sudo ./install.sh
 ```
 
-L'installer preserva device, gruppi, ACL, server key, dashboard token e genera una sola volta:
+L'installer migra automaticamente i servizi v0.5 senza perdere porte, target, ACL o gruppi.
 
-- `/etc/ge360-bridge/enrollment.key`
-- `/etc/ge360-bridge/pairing-tls.key`
-- `/etc/ge360-bridge/pairing-tls.crt`
-
-Nuovo servizio:
+## Esempio Rilievi
 
 ```bash
-systemctl status ge360-bridge-enrollment --no-pager
-curl -k https://127.0.0.1:8790/healthz
+sudo ge360-bridge resource-add rilievi \
+  --port 9888 \
+  --target-host 127.0.0.1 \
+  --target-port 9888 \
+  --protocol http \
+  --icon ruler \
+  --description "GE360 Rilievi" \
+  --health-url /healthz \
+  --timeout 2
 ```
 
-## Creare un pairing v2
+Se `rilievi` esiste già dopo la migrazione:
 
 ```bash
-sudo ge360-bridge device-add telefono-milan \
-  --type android \
-  --owner Milan \
-  --groups amministratori \
-  --ttl 600
+sudo ge360-bridge resource-update rilievi \
+  --protocol http \
+  --icon ruler \
+  --description "GE360 Rilievi" \
+  --health-url /healthz
 ```
 
-Oppure:
+## Importante
 
-```bash
-sudo ge360-bridge pairing-create telefono-milan --ttl 600
-ge360-bridge pairing-list
-```
+La Fase 4 **non implementa ancora il Health Engine**. Health URL e timeout vengono soltanto registrati e validati. Il proxy rimane TCP e stabile come nelle fasi precedenti.
 
-Il QR non contiene la private key del client.
+Il Health Engine vero è la Fase 5.
 
-## Porte
-
-- UDP 51820: WireGuard
-- TCP 8790: HTTPS enrollment v2
-- TCP 8788: health interno via WireGuard
-- TCP 8789: dashboard locale/WireGuard
-
-La 8790 è riservata al pairing e non può essere usata come porta applicativa.
-
-## Dashboard
-
-- locale: `http://127.0.0.1:8789`
-- via Bridge: `http://10.88.0.1:8789`
-
-La dashboard genera il QR v2 monouso e permette di scegliere TTL e gruppi iniziali.
-
-## Sicurezza pairing
-
-- token ad alta entropia;
-- token in chiaro mai persistito;
-- certificate pinning tramite fingerprint SHA-256 nel QR;
-- public key client validata;
-- private key generata e conservata solo sul client;
-- replay rifiutato;
-- token scaduto rifiutato;
-- un solo invito pending per nome device;
-- endpoint enrollment separato dalla dashboard.
-
-Vedi `docs/PAIRING_PROTOCOL.md`.
-
-## Nota CGNAT
-
-Il pairing remoto diretto richiede che TCP 8790 sia raggiungibile. L'installer prova UPnP quando disponibile. In presenza di CGNAT senza IPv6 globale il limite resta invariato; NAT traversal non viene anticipato prima delle Fasi 18-19.
+Vedi `docs/RESOURCE_REGISTRY.md`.

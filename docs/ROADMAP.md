@@ -23,45 +23,42 @@ Gruppi persistenti, membership tramite device_id, servizi concessi ai gruppi e o
 
 ## Fase 3 — Pairing sicuro v2 — COMPLETATA
 
-Obiettivo: eliminare la private key del client dal QR e dal server durante la creazione dei nuovi device.
+Token monouso, TTL, private key generata sul client, HTTPS bootstrap con certificate pinning e protezione replay.
+
+## Fase 4 — Resource Registry — CORRENTE
+
+Obiettivo: sostituire il modello generico Service con un registro Resource autoritativo senza rompere backend, ACL, gruppi o pairing esistenti.
 
 Scope obbligatorio:
-- schema QR `ge360-bridge-pairing/v2`;
-- token monouso ad alta entropia;
-- token persistito solo come HMAC/hash;
-- TTL configurabile da 60 secondi a 24 ore;
-- un solo pairing pending per nome device;
-- endpoint bootstrap HTTPS dedicato pre-VPN;
-- certificato TLS self-signed persistente e fingerprint SHA-256 inserito nel QR;
-- client obbligato a generare localmente la propria private key WireGuard;
-- server riceve solo la public key WireGuard;
-- validazione public key WireGuard;
-- PSK generata dal server al momento dell'enrollment;
-- assegnazione IP VPN solo dopo enrollment valido;
-- associazione opzionale ai gruppi già esistenti;
-- stato enrollment pending/used/expired;
-- protezione replay tramite invalidazione atomica del token dopo il primo uso;
-- retention temporanea dei record used/expired per riconoscere replay e scadenze;
-- dashboard e CLI per generare QR v2;
-- servizio systemd dedicato `ge360-bridge-enrollment`;
-- boot verify dell'endpoint HTTPS;
-- porta pairing TCP 8790 riservata al sistema;
-- compatibilità con device già esistenti.
+- file autoritativo resources.json;
+- migrazione automatica services.json → resources.json;
+- mirror services.json di compatibilità;
+- Resource con nome, icona, descrizione, protocollo, bridge port, target host/port, health URL, timeout, enabled e ACL;
+- protocolli ammessi tcp/http/https;
+- bridge port univoca e porte di sistema riservate;
+- target ancora limitato a loopback;
+- health URL validata ma non eseguita;
+- timeout registrato ma non usato dal futuro Health Engine;
+- ACL dirette Fase 2 preservate;
+- associazioni gruppo preservate;
+- allowed_resources esposto insieme al legacy allowed_services;
+- CLI resource-add/update/remove/list;
+- comandi service-* mantenuti come alias compatibili;
+- dashboard per creare, visualizzare, modificare e rimuovere Resource;
+- daemon/proxy alimentato dal Resource Registry;
+- firewall alimentato da resources.json;
+- pairing/status espongono Resource mantenendo il campo services di compatibilità.
 
-Fuori scope Fase 3:
-- Resource Registry;
-- Health Engine avanzato;
-- diagnostica avanzata;
+Fuori scope Fase 4:
+- Health Engine attivo;
+- HTTP status check;
+- latenza e stato DEGRADED;
+- diagnostica;
 - audit;
-- SDK Android;
-- connessione automatica Android;
+- Resource Launcher;
 - NAT discovery/traversal.
 
-Criterio di chiusura: test e CI verdi, token non presente in chiaro nello stato, private key client mai presente nel payload server, replay e token scaduti rifiutati.
-
-## Fase 4 — Resource Registry — PROSSIMA, NON AVVIATA
-
-Entità Resource con nome, icona, descrizione, protocollo, bridge port, target, health URL, timeout e ACL.
+Criterio di chiusura: test e CI verdi, migrazione v0.5 senza perdita di porta/target/ACL/gruppi e compatibilità service-* verificata.
 
 ## Fase 5 — Health Engine
 

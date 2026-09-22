@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-STATE=/etc/ge360-bridge/services.json
+RESOURCE_STATE=/etc/ge360-bridge/resources.json
+LEGACY_STATE=/etc/ge360-bridge/services.json
+STATE="$RESOURCE_STATE"
+[[ -r "$STATE" ]] || STATE="$LEGACY_STATE"
 HEALTH_PORT=8788
 DASHBOARD_PORT=8789
 
@@ -12,7 +15,13 @@ try:
     items=json.load(open(sys.argv[1], encoding='utf-8'))
 except Exception:
     items=[]
-ports=sorted({int(s['listen_port']) for s in items if s.get('enabled', True) and 1 <= int(s['listen_port']) <= 65535})
+ports=sorted({
+    int(s.get('bridge_port', s.get('listen_port')))
+    for s in items
+    if s.get('enabled', True)
+    and s.get('bridge_port', s.get('listen_port')) is not None
+    and 1 <= int(s.get('bridge_port', s.get('listen_port'))) <= 65535
+})
 print(','.join(map(str, ports)))
 PY
 )"

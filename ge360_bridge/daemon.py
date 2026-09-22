@@ -6,12 +6,12 @@ import signal
 from typing import Any
 
 from .core import (
-    allowed_ips_for_service,
+    allowed_ips_for_resource,
     device_is_active,
-    effective_services_for_device,
+    effective_resources_for_device,
     list_devices,
     list_groups,
-    list_services,
+    list_resources,
 )
 
 BIND_HOST = "10.88.0.1"
@@ -33,7 +33,7 @@ async def pipe(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> No
             pass
 
 
-async def handle_client(client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter, service: dict[str, Any], allowed: set[str]) -> None:
+async def handle_client(client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter, resource: dict[str, Any], allowed: set[str]) -> None:
     peer = client_writer.get_extra_info("peername")
     peer_ip = peer[0] if peer else ""
     if peer_ip not in allowed:
@@ -41,7 +41,7 @@ async def handle_client(client_reader: asyncio.StreamReader, client_writer: asyn
         await client_writer.wait_closed()
         return
     try:
-        target_reader, target_writer = await asyncio.open_connection(service["target_host"], int(service["target_port"]))
+        target_reader, target_writer = await asyncio.open_connection(resource["target_host"], int(resource["target_port"]))
     except OSError:
         client_writer.close()
         await client_writer.wait_closed()
@@ -54,7 +54,7 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
     peer_ip = peer[0] if peer else ""
     devices = list_devices()
     groups = list_groups()
-    services_all = list_services()
+    resources_all = list_resources()
     active_devices = {d["vpn_ip"]: d for d in devices if device_is_active(d)}
     if peer_ip not in active_devices:
         writer.close()
@@ -76,9 +76,16 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         status = "404 Not Found"
     else:
         device = active_devices[peer_ip]
-        services = [
-            {"name": s["name"], "url": f"http://{BIND_HOST}:{s['listen_port']}"}
-            for s in effective_services_for_device(device, services_all, groups)
+        resources = [
+            {
+                "name": r["name"],
+                "icon": r.get("icon","server"),
+                "description": r.get("description",""),
+                "protocol": r.get("protocol","tcp"),
+                "bridge_port": r["bridge_port"],
+                "url": f"http://{BIND_HOST}:{r['bridge_port']}",
+            }
+            for r in effective_resources_for_device(device, resources_all, groups)
         ]
         memberships = [
             g["name"] for g in groups
@@ -92,7 +99,8 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             "device_id": device["device_id"],
             "vpn_ip": peer_ip,
             "groups": memberships,
-            "services": services,
+            "resources": resources,
+            "services": [{"name": r["name"], "url": r["url"]} for r in resources],
         }).encode()
         status = "200 OK"
 
@@ -113,14 +121,14 @@ async def main() -> None:
     health = await asyncio.start_server(handle_health, BIND_HOST, HEALTH_PORT)
     servers.append(health)
 
-    for service in list_services():
-        if not service.get("enabled", True):
+    for resource in list_resources():
+        if not resource.get("enabled", True):
             continue
-        allowed = allowed_ips_for_service(service, devices, groups)
+        allowed = allowed_ips_for_resource(resource, devices, groups)
         server = await asyncio.start_server(
-            lambda r, w, s=service, a=allowed: handle_client(r, w, s, a),
+            lambda r, w, s=resource, a=allowed: handle_client(r, w, s, a),
             BIND_HOST,
-            int(service["listen_port"]),
+            int(resource["listen_port"]),
         )
         servers.append(server)
 

@@ -21,13 +21,16 @@ from .core import (
     find_device,
     list_devices,
     list_groups,
+    list_resources,
     list_services,
     new_device_id,
     next_device_ip,
     normalize_tags,
     random_token,
+    register_resource,
     register_service,
     remove_group,
+    remove_resource,
     remove_service,
     rename_device,
     revoke_device,
@@ -38,6 +41,7 @@ from .core import (
     set_group_enabled,
     set_group_service,
     update_device_metadata,
+    update_resource,
     utc_now_iso,
     validate_device_type,
     validate_expiry,
@@ -318,9 +322,58 @@ def cmd_service_remove(args: argparse.Namespace) -> None:
     print(f"Rimosso: {args.name}")
 
 
+def cmd_resource_add(args: argparse.Namespace) -> None:
+    must_root()
+    allowed = [x for x in (args.allow or "").split(",") if x]
+    resource = register_resource(
+        args.name,
+        args.port,
+        args.target_host,
+        args.target_port,
+        allowed,
+        icon=args.icon,
+        description=args.description,
+        protocol=args.protocol,
+        health_url=args.health_url,
+        timeout_seconds=args.timeout,
+    )
+    reload_runtime()
+    print(json.dumps(resource.__dict__, indent=2))
+
+
+def cmd_resource_update(args: argparse.Namespace) -> None:
+    must_root()
+    resource = update_resource(
+        args.name,
+        icon=args.icon,
+        description=args.description,
+        protocol=args.protocol,
+        bridge_port=args.port,
+        target_host=args.target_host,
+        target_port=args.target_port,
+        health_url=args.health_url,
+        timeout_seconds=args.timeout,
+        enabled=None if args.enabled is None else args.enabled == "true",
+    )
+    reload_runtime()
+    print(json.dumps(resource, indent=2))
+
+
+def cmd_resource_remove(args: argparse.Namespace) -> None:
+    must_root()
+    if not remove_resource(args.name):
+        raise BridgeError("Resource non trovata.")
+    reload_runtime()
+    print(f"Resource rimossa: {args.name}")
+
+
+def cmd_resource_list(_: argparse.Namespace) -> None:
+    print(json.dumps({"resources": list_resources()}, indent=2))
+
+
 def cmd_list(_: argparse.Namespace) -> None:
     safe_devices = [{k: v for k, v in d.items() if k not in ("preshared_key", "token")} for d in list_devices()]
-    print(json.dumps({"devices": safe_devices, "groups": list_groups(), "services": list_services()}, indent=2))
+    print(json.dumps({"devices": safe_devices, "groups": list_groups(), "resources": list_resources(), "services": list_services()}, indent=2))
 
 
 def port_open(host: str, port: int) -> bool:
@@ -336,6 +389,7 @@ def cmd_status(_: argparse.Namespace) -> None:
     status = {
         "wireguard_config": WG_CONF.exists(),
         "services_file": SERVICES_FILE.exists(),
+        "resource_registry": True,
         "endpoint": endpoint(),
         "health_url": f"http://{DEFAULT_SERVER_VPN_IP}:{HEALTH_PORT}/v1/status",
         "groups": len(list_groups()),
@@ -410,6 +464,35 @@ def parser() -> argparse.ArgumentParser:
     s = sub.add_parser("service-grant"); s.add_argument("service"); s.add_argument("device"); s.set_defaults(func=lambda a: cmd_service_override(a, "allow"))
     s = sub.add_parser("service-revoke"); s.add_argument("service"); s.add_argument("device"); s.set_defaults(func=lambda a: cmd_service_override(a, "deny"))
     s = sub.add_parser("service-inherit"); s.add_argument("service"); s.add_argument("device"); s.set_defaults(func=lambda a: cmd_service_override(a, "inherit"))
+
+    r = sub.add_parser("resource-add")
+    r.add_argument("name")
+    r.add_argument("--port", type=int, required=True, help="Bridge port")
+    r.add_argument("--target-host", default="127.0.0.1")
+    r.add_argument("--target-port", type=int, required=True)
+    r.add_argument("--protocol", default="tcp", choices=["tcp","http","https"])
+    r.add_argument("--icon", default="server")
+    r.add_argument("--description", default="")
+    r.add_argument("--health-url", default="")
+    r.add_argument("--timeout", type=float, default=2.0)
+    r.add_argument("--allow", default="")
+    r.set_defaults(func=cmd_resource_add)
+
+    r = sub.add_parser("resource-update")
+    r.add_argument("name")
+    r.add_argument("--port", type=int)
+    r.add_argument("--target-host")
+    r.add_argument("--target-port", type=int)
+    r.add_argument("--protocol", choices=["tcp","http","https"])
+    r.add_argument("--icon")
+    r.add_argument("--description")
+    r.add_argument("--health-url")
+    r.add_argument("--timeout", type=float)
+    r.add_argument("--enabled", choices=["true","false"])
+    r.set_defaults(func=cmd_resource_update)
+
+    r = sub.add_parser("resource-remove"); r.add_argument("name"); r.set_defaults(func=cmd_resource_remove)
+    r = sub.add_parser("resource-list"); r.set_defaults(func=cmd_resource_list)
 
     l = sub.add_parser("list"); l.set_defaults(func=cmd_list)
     st = sub.add_parser("status"); st.set_defaults(func=cmd_status)

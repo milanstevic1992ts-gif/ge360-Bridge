@@ -75,11 +75,12 @@ fi
 [[ -e "$STATE_DIR/groups.json" ]] || printf '[]\n' > "$STATE_DIR/groups.json"
 [[ -e "$STATE_DIR/enrollments.json" ]] || printf '[]\n' > "$STATE_DIR/enrollments.json"
 
-say "Migrazione registry Fase 1 + ACL Fase 2"
+say "Migrazione registry Fasi 1-4"
 PYTHONPATH="$PY_DST" python3 - <<'PY'
-from ge360_bridge.core import upgrade_device_registry, upgrade_acl_registry
+from ge360_bridge.core import upgrade_device_registry, upgrade_acl_registry, upgrade_resource_registry
 print(f"Device migrati/aggiornati: {upgrade_device_registry()}")
-print(f"Servizi ACL migrati/aggiornati: {upgrade_acl_registry()}")
+print(f"ACL migrate/aggiornate: {upgrade_acl_registry()}")
+print(f"Resource migrate/aggiornate: {upgrade_resource_registry()}")
 PY
 
 chmod 600 "$STATE_DIR"/*.json "$STATE_DIR"/bridge.env "$STATE_DIR"/server.key "$STATE_DIR"/server.pub "$STATE_DIR"/dashboard.token "$STATE_DIR"/enrollment.key "$STATE_DIR"/pairing-tls.key "$STATE_DIR"/pairing-tls.crt
@@ -159,11 +160,11 @@ if [[ -n "$WAN4" ]]; then
 fi
 
 say "Installazione completata"
-echo "Versione: GE360 Bridge v0.5 - Fase 3 Pairing sicuro v2"
+echo "Versione: GE360 Bridge v0.6 - Fase 4 Resource Registry"
 echo "Dashboard locale: http://127.0.0.1:8789"
 echo "Dashboard via Bridge: http://10.88.0.1:8789"
 echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
 echo "Pairing HTTPS: porta TCP $PAIRING_PORT"
 echo "Roadmap: docs/ROADMAP.md"
-echo "Esempio: sudo ge360-bridge device-add telefono --type android --groups amministratori"
-echo "Il QR v2 contiene un token monouso; la private key WireGuard viene generata sul client."
+echo "Esempio Resource: sudo ge360-bridge resource-add rilievi --port 9888 --target-port 9888 --protocol http --health-url /healthz"
+echo "I vecchi comandi service-* restano alias compatibili."

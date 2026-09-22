@@ -1,62 +1,74 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.18 — Fase 16 completata: Backup configurazione**. La Fase 17 — Update Engine è la prossima e non è stata avviata.
+Versione corrente: **v0.19 — Fase 17: Update Engine in verifica CI**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## Backup configurazione
+## Update Engine
 
-GE360 Bridge conserva snapshot root-only della configurazione necessaria al disaster recovery.
-
-Default:
+GE360 Bridge può ora applicare pacchetti software controllati con:
 
 ```text
-frequenza: 1 backup al giorno
-retention: 10 copie
-directory: /etc/ge360-bridge/backups
-archivi: 0600
+HTTPS download
+SHA-256 obbligatorio
+preflight
+backup configurazione
+snapshot software rollback
+installazione atomica
+health check
+rollback automatico
 ```
 
-Comandi:
+Comando completo:
 
 ```bash
-sudo ge360-bridge backup-create
-sudo ge360-bridge backup-list
-sudo ge360-bridge backup-verify <backup>
-sudo ge360-bridge backup-restore <backup>
-sudo ge360-bridge backup-restore <backup> --apply
+sudo ge360-bridge update-run \
+  https://server.example/ge360-update-vNEXT.tar.gz \
+  --sha256 <SHA256>
 ```
 
-Ogni archivio usa manifest + SHA-256 e viene validato prima del restore.
+Verifica senza installare:
 
-Sono inclusi registry/ACL, configurazione Bridge, identità server, certificati/token server e configurazione WireGuard. Sono esclusi audit, metriche, pairing temporanei e stato runtime self-healing.
-
-Le private key client non vengono esportate. Il Pairing v2 non le conserva sul server e il backup blocca eventuali campi sospetti in `devices.json`.
-
-Timer:
-
-```text
-ge360-bridge-backup.timer
-ogni giorno alle 03:20
+```bash
+sudo ge360-bridge update-verify /percorso/update.tar.gz
 ```
+
+Stato:
+
+```bash
+sudo ge360-bridge update-status
+```
+
+L'Update Engine non esegue `install.sh` scaricati e non permette al manifest di scegliere percorsi arbitrari sul server.
+
+Se l'health check post-update fallisce, vengono ripristinati software precedente e backup configurazione pre-update, poi viene verificata nuovamente la salute del Bridge.
+
+## Creazione pacchetto
+
+```bash
+python scripts/build-update-package.py \
+  --source . \
+  --output /tmp/ge360-update.tar.gz
+```
+
+Il builder restituisce anche lo SHA-256 da distribuire insieme al pacchetto.
+
+## Backup configurazione
+
+La Fase 16 resta attiva con un backup al giorno e retention 10 copie.
 
 ## Self-healing
 
-Il self-healing v0.17 resta opt-in per singola Resource e mantiene il limite massimo 3 restart / 10 minuti.
+Il self-healing resta opt-in per Resource con limite 3 restart / 10 minuti.
 
-## Linux Agent
+## Nessun auto-update
 
-Il Linux Agent resta read-only e separato dal backup locale del Bridge.
-
-## Limite di rete
-
-Backup e restore non modificano CGNAT, NAT traversal o connettività remota.
+La Fase 17 non controlla né installa automaticamente nuove release. URL e SHA-256 devono essere forniti esplicitamente.
 
 Vedi:
 
 ```text
+docs/UPDATE_ENGINE.md
 docs/BACKUP_CONFIG.md
 docs/SELF_HEALING.md
-docs/LINUX_AGENT.md
-docs/BACKEND_DISCOVERY.md
 ```

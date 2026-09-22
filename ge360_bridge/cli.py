@@ -56,6 +56,7 @@ from .metrics import collect_snapshot, query_series
 from .discovery import discover_backends, import_discovered_backend
 from .self_healing import run_self_heal, self_heal_status
 from .backup import create_backup, list_backups, restore_backup, verify_backup
+from .update_engine import apply_update, download_update, preflight_update, run_update, update_status, verify_update
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -442,6 +443,32 @@ def cmd_backup_restore(args: argparse.Namespace) -> None:
     print(json.dumps(report, indent=2))
 
 
+def cmd_update_download(args: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps(download_update(args.url, args.sha256), indent=2))
+
+
+def cmd_update_verify(args: argparse.Namespace) -> None:
+    must_root()
+    report = preflight_update(args.package, require_newer=not args.allow_not_newer)
+    print(json.dumps(report, indent=2))
+
+
+def cmd_update_apply(args: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps(apply_update(args.package, config_backup_keep=args.keep), indent=2))
+
+
+def cmd_update_run(args: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps(run_update(args.url, args.sha256, config_backup_keep=args.keep), indent=2))
+
+
+def cmd_update_status(_: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps(update_status(), indent=2))
+
+
 def cmd_health_check(args: argparse.Namespace) -> None:
     resources = list_resources()
     if args.resource:
@@ -687,6 +714,30 @@ def parser() -> argparse.ArgumentParser:
     b.add_argument("--apply", action="store_true", help="Applica realmente il restore; senza flag mostra solo il piano")
     b.add_argument("--keep", type=int, default=10, help="Retention usata per il safety backup pre-restore")
     b.set_defaults(func=cmd_backup_restore)
+
+    u = sub.add_parser("update-download", help="Scarica un pacchetto update solo via HTTPS e verifica SHA-256")
+    u.add_argument("url")
+    u.add_argument("--sha256", required=True)
+    u.set_defaults(func=cmd_update_download)
+
+    u = sub.add_parser("update-verify", help="Verifica pacchetto e preflight senza installare")
+    u.add_argument("package")
+    u.add_argument("--allow-not-newer", action="store_true", help="Solo diagnostica: consente verifica di una versione non più recente")
+    u.set_defaults(func=cmd_update_verify)
+
+    u = sub.add_parser("update-apply", help="Installa un pacchetto locale verificato con rollback automatico")
+    u.add_argument("package")
+    u.add_argument("--keep", type=int, default=10, help="Retention backup configurazione pre-update")
+    u.set_defaults(func=cmd_update_apply)
+
+    u = sub.add_parser("update-run", help="Download HTTPS + verifica + backup + install + health + rollback")
+    u.add_argument("url")
+    u.add_argument("--sha256", required=True)
+    u.add_argument("--keep", type=int, default=10)
+    u.set_defaults(func=cmd_update_run)
+
+    u = sub.add_parser("update-status", help="Mostra ultimo aggiornamento e snapshot rollback disponibili")
+    u.set_defaults(func=cmd_update_status)
 
     h = sub.add_parser("health-check")
     h.add_argument("resource", nargs="?", help="Nome Resource; senza nome controlla tutte")

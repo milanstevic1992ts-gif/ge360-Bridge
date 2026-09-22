@@ -251,7 +251,7 @@ def _tar_add_bytes(tf: tarfile.TarFile, name: str, data: bytes, mtime: int) -> N
 
 
 def _backup_name(now: datetime, reason: str) -> str:
-    safe_reason = reason if reason in {"manual", "daily", "pre-restore"} else "manual"
+    safe_reason = reason if reason in {"manual", "daily", "pre-restore", "pre-update"} else "manual"
     stamp = now.strftime("%Y%m%dT%H%M%SZ")
     return f"ge360-config-{stamp}-{safe_reason}.tar.gz"
 

@@ -466,9 +466,49 @@ Chiusura verificata:
 - workflow Android non modificato e ultimo run su main verde;
 - nessun download/update, rollback software, NAT discovery, relay o multi-server introdotto.
 
-## Fase 17 — Update Engine — PROSSIMA, NON AVVIATA
+## Fase 17 — Update Engine — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
 
-Backup, download, test, installazione, health check e rollback.
+Obiettivo: installare aggiornamenti software GE360 in modo controllato con backup pre-update, verifica forte, health check e rollback automatico.
+
+Scope:
+- pacchetto ge360-bridge-update/v1 con manifest e payload;
+- target di installazione calcolati localmente da whitelist, mai scelti liberamente dal manifest;
+- download consentito soltanto via HTTPS;
+- SHA-256 atteso obbligatorio per download;
+- redirect verso protocolli non HTTPS rifiutato;
+- limiti su dimensione archivio, numero file, dimensione membro e totale decompresso;
+- rifiuto symlink, path traversal e file non gestiti;
+- versione manifest validata e pacchetto più recente della versione installata;
+- corrispondenza versione manifest / ge360_bridge.__version__;
+- preflight compileall Python, bash -n script e validazione minima unit systemd;
+- nessuna esecuzione di install.sh o codice arbitrario dal pacchetto;
+- backup configurazione Fase 16 obbligatorio prima dell'installazione;
+- snapshot software rollback root-only con retention 3;
+- installazione file atomica temp + fsync + chmod + rename;
+- systemctl daemon-reload e restart controllato runtime;
+- health check servizi principali, dashboard e pairing HTTPS;
+- fino a 10 tentativi health post-update;
+- rollback software automatico se install/restart/health falliscono;
+- restore backup configurazione pre-update durante rollback;
+- health check dopo rollback;
+- errore esplicito se anche il rollback fallisce;
+- lock esclusivo per impedire update concorrenti;
+- report ultimo update root-only;
+- CLI update-download, update-verify, update-apply, update-run e update-status;
+- builder deterministico scripts/build-update-package.py;
+- CI che costruisce il pacchetto reale della repository e ne esegue il preflight.
+
+Fuori scope Fase 17:
+- auto-update periodico;
+- polling automatico release GitHub;
+- timer update;
+- canali beta/stable automatici;
+- update remoto tramite Linux Agent;
+- NAT discovery/traversal;
+- relay;
+- multi-server control plane.
+
+Criterio di chiusura: CI Python verde, pacchetto reale costruito e preflight verde, test download/verifica/install/health/rollback verdi, backup pre-update verificato, rollback automatico verificato e nessuna funzione Fase 18 anticipata.
 
 ## Fase 18 — NAT Discovery
 

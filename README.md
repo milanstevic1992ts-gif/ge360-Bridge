@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.22 — Fase 20 completata: Relay opzionale self-hosted**. La Fase 21 — Multi-server GE360 è la prossima e non è stata avviata.
+Versione corrente: **v0.23 — Fase 21: Multi-server GE360 in verifica CI**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
@@ -137,3 +137,27 @@ docs/NAT_DISCOVERY.md
 docs/UPDATE_ENGINE.md
 docs/BACKUP_CONFIG.md
 ```
+
+
+## Multi-server GE360
+
+Fase 21 aggiunge un control plane read-only:
+
+```bash
+sudo ge360-bridge server-export --public-host server2.example.com
+sudo ge360-bridge server-add server2 --server-id srv_xxx --url https://server2.example.com:8793 --pin <SHA256> --token <TOKEN>
+ge360-bridge server-status
+ge360-bridge server-catalog
+```
+
+Catalogo device-facing:
+
+```text
+http://10.88.0.1:8788/v1/catalog
+```
+
+Le Resource sono identificate come `server_id:resource_name`.
+
+Il control plane non esegue mutazioni remote e non proxy-a il traffico applicativo.
+
+Vedi `docs/MULTI_SERVER.md`.

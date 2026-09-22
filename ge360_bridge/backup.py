@@ -38,6 +38,11 @@ SOURCE_MAP: dict[str, Path] = {
 
 OPTIONAL_SOURCE_MAP: dict[str, Path] = {
     "state/relay.token": core.STATE_DIR / "relay.token",
+    "state/servers.json": core.STATE_DIR / "servers.json",
+    "state/server-id": core.STATE_DIR / "server-id",
+    "state/server.token": core.STATE_DIR / "server.token",
+    "state/multi-server-tls.key": core.STATE_DIR / "multi-server-tls.key",
+    "state/multi-server-tls.crt": core.STATE_DIR / "multi-server-tls.crt",
 }
 ALL_SOURCE_MAP: dict[str, Path] = {**SOURCE_MAP, **OPTIONAL_SOURCE_MAP}
 REQUIRED_ARCHIVE_FILES = frozenset(SOURCE_MAP)
@@ -216,6 +221,27 @@ def validate_snapshot(files: dict[str, bytes]) -> dict[str, Any]:
             raise BridgeError(f"Backup contiene un segreto/config vuoto: {name}")
     if "state/relay.token" in files and not files["state/relay.token"].strip():
         raise BridgeError("Backup contiene relay.token vuoto.")
+    for name in ("state/server-id", "state/server.token", "state/multi-server-tls.key", "state/multi-server-tls.crt"):
+        if name in files and not files[name].strip():
+            raise BridgeError(f"Backup contiene segreto/config multi-server vuoto: {name}")
+    if "state/servers.json" in files:
+        try:
+            servers = json.loads(files["state/servers.json"].decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise BridgeError("servers.json non valido nel backup.") from exc
+        if not isinstance(servers, list):
+            raise BridgeError("servers.json non valido nel backup.")
+        try:
+            from .multi_server import _normalize_server
+            normalized_servers = [_normalize_server(x) for x in servers if isinstance(x, dict)]
+        except Exception as exc:
+            raise BridgeError("servers.json non valido nel backup.") from exc
+        if len(normalized_servers) != len(servers):
+            raise BridgeError("servers.json non valido nel backup.")
+        ids = [x["server_id"] for x in normalized_servers]
+        names = [x["name"] for x in normalized_servers]
+        if len(ids) != len(set(ids)) or len(names) != len(set(names)):
+            raise BridgeError("servers.json contiene server duplicati.")
 
     return {
         "devices": len(devices),

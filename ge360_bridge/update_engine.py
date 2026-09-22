@@ -58,6 +58,7 @@ CORE_SERVICES = (
     "ge360-bridge.service",
     "ge360-bridge-dashboard.service",
     "ge360-bridge-enrollment.service",
+    "ge360-bridge-multi-server.service",
 )
 
 
@@ -525,6 +526,7 @@ def restart_runtime(runner: Callable[[list[str]], subprocess.CompletedProcess[st
         ["restart", "ge360-bridge.service"],
         ["restart", "ge360-bridge-dashboard.service"],
         ["restart", "ge360-bridge-enrollment.service"],
+        ["restart", "ge360-bridge-multi-server.service"],
     ]
     results = []
     for args in commands:

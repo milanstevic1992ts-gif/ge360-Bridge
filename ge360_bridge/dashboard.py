@@ -34,6 +34,7 @@ from .discovery import discover_backends, import_discovered_backend
 from .nat_discovery import discover_nat
 from .p2p import p2p_status
 from .relay_client import local_relay_status, relay_visible
+from .multi_server import build_catalog, server_status
 
 PORT = 8789
 STATE_DIR = Path(os.environ.get("GE360_BRIDGE_STATE_DIR", "/etc/ge360-bridge"))
@@ -315,8 +316,8 @@ def dashboard_page(error:str="")->str:
     service_checks="".join(f"<label><input type='checkbox' name='service' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in services) or "—"
     group_checks="".join(f"<label><input type='checkbox' name='group' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in groups if x.get("enabled",True)) or "—"
     relay_link=" <a class='btn' href='/relay'>Relay fallback</a>" if relay_visible() else ""
-    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 20 · Relay opzionale</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
-<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>Resource ONLINE</div></div><div class='card'><div class='n'>{c.get('degraded_services',0)}</div><div class='m'>Resource DEGRADED</div></div><div class='card'><div class='n'>v0.22</div><div class='m'>Bridge</div></div></div>
+    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 21 · Multi-server GE360</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
+<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>Resource ONLINE</div></div><div class='card'><div class='n'>{c.get('degraded_services',0)}</div><div class='m'>Resource DEGRADED</div></div><div class='card'><div class='n'>v0.23</div><div class='m'>Bridge</div></div></div>
 <div class='panel'><h2>Dispositivi</h2><div class='tw'><table><tr><th>Device</th><th>Stato</th><th>Gruppi</th><th>Accesso effettivo</th><th>Handshake</th><th></th></tr>{''.join(dr) or '<tr><td colspan=6>Nessun device</td></tr>'}</table></div></div>
 <div class='panel'><h2>Gruppi</h2><div class='tw'><table><tr><th>Gruppo</th><th>Device</th><th>Resource</th><th>Stato</th><th></th></tr>{''.join(gr) or '<tr><td colspan=5>Nessun gruppo</td></tr>'}</table></div></div>
 <div class='panel'><h2>Audit Log</h2><div class='m'>Eventi persistenti: {count_events()}</div><div class='tw'><table><tr><th>Ora</th><th>Evento</th><th>Device</th><th>Resource</th><th>Risultato</th></tr>{''.join(f"<tr><td class='mono'>{esc(e.get('timestamp'))}</td><td>{esc(e.get('event'))}</td><td>{esc(e.get('device_name') or e.get('device_id') or '—')}</td><td>{esc(e.get('resource') or '—')}</td><td>{esc(e.get('result') or e.get('error') or '—')}</td></tr>" for e in list_events(limit=20)) or '<tr><td colspan=5>Nessun evento</td></tr>'}</table></div><p><a class='btn' href='/api/audit'>JSON audit</a></p></div>
@@ -324,7 +325,7 @@ def dashboard_page(error:str="")->str:
 <div class='panel'><h2>Registra Resource</h2><form method='post' action='/resource/add'><div class='forms'><div class='box'><label>Nome</label><input name='name' placeholder='rilievi' required><label>Icona</label><input name='icon' value='server'><label>Descrizione</label><textarea name='description'></textarea><label>Protocollo</label><select name='protocol'><option value='http'>HTTP</option><option value='https'>HTTPS</option><option value='tcp'>TCP</option></select></div><div class='box'><label>Bridge port</label><input type='number' name='bridge_port' min='1' max='65535' required><label>Target host</label><input name='target_host' value='127.0.0.1' required><label>Target port</label><input type='number' name='target_port' min='1' max='65535' required><label>Health URL/path opzionale</label><input name='health_url' placeholder='/healthz'><label>Timeout secondi</label><input type='number' name='timeout' min='0.1' max='30' step='0.1' value='2.0'><label>Systemd unit opzionale</label><input name='systemd_unit' placeholder='ge360-rilievi.service'><label><input type='checkbox' name='self_heal' value='1' style='width:auto'> abilita self-healing</label><div class='m'>Solo backend applicativi. Limite globale per Resource: 3 restart / 10 minuti.</div><p><button class='primary'>Registra Resource</button></p></div></div></form></div>
 <div class='panel forms'><div class='box'><h3>Crea gruppo</h3><form method='post' action='/group/create'><label>Nome</label><input name='name' placeholder='amministratori' required><label>Descrizione</label><textarea name='description'></textarea><p><button class='primary'>Crea gruppo</button></p></form></div>
 <div class='box'><h3>Pairing sicuro v2</h3><form method='post' action='/device/add'><label>Nome device</label><input name='name' required><label>Tipo</label><select name='device_type'><option>android</option><option>tablet</option><option>linux</option><option>windows</option><option>server</option><option selected>unknown</option></select><label>Proprietario</label><input name='owner'><label>Tag</label><input name='tags'><label>Scadenza device</label><input type='date' name='expires_at'><label>Gruppi iniziali</label><div class='checks'>{group_checks}</div><label>TTL token</label><select name='ttl'><option value='300'>5 minuti</option><option value='600' selected>10 minuti</option><option value='1800'>30 minuti</option><option value='86400'>24 ore</option></select><p><button class='primary'>Genera QR v2 monouso</button></p></form></div></div>
-<div class='panel'><b>Launcher device</b><div class='mono'>http://10.88.0.1:8788/hub</div><div class='m'>Visibile ai device VPN e filtrato dalle ACL effettive.</div></div><div class='panel row'><div><a class='btn' href='/discovery'>Backend discovery</a> <a class='btn' href='/nat'>NAT discovery</a> <a class='btn' href='/p2p'>P2P traversal</a>{relay_link} <a class='btn' href='/metrics'>Metriche</a> <a class='btn' href='/api/status'>JSON</a></div><a class='btn' href='/logout'>Esci</a></div></div>"""
+<div class='panel'><b>Launcher device</b><div class='mono'>http://10.88.0.1:8788/hub</div><div class='m'>Visibile ai device VPN e filtrato dalle ACL effettive.</div></div><div class='panel row'><div><a class='btn' href='/discovery'>Backend discovery</a> <a class='btn' href='/nat'>NAT discovery</a> <a class='btn' href='/p2p'>P2P traversal</a>{relay_link} <a class='btn' href='/servers'>Multi-server</a> <a class='btn' href='/metrics'>Metriche</a> <a class='btn' href='/api/status'>JSON</a></div><a class='btn' href='/logout'>Esci</a></div></div>"""
     return shell(body,refresh=True)
 
 
@@ -417,6 +418,31 @@ def relay_page()->str:
 <div class='panel'><h2>Sessioni fallback</h2><div class='tw'><table><tr><th>Sessione</th><th>Device</th><th>Stato</th><th>Lato Bridge</th><th>Lato client</th></tr>{rows or '<tr><td colspan=5>Nessuna sessione relay attiva.</td></tr>'}</table></div></div>
 <div class='panel'><p><a class='btn' href='/api/relay'>JSON relay</a></p><div class='m'>Questa voce appare nella dashboard solo dopo un fallimento P2P/direct o quando esiste una sessione relay runtime. Il relay non riceve Resource né chiavi WireGuard.</div></div></div>"""
     return shell(body,"Relay fallback")
+
+
+def servers_page()->str:
+    try:
+        report=server_status()
+        catalog=build_catalog()
+        error=""
+    except Exception as exc:
+        report={"servers":[],"online_servers":0,"server_count":0,"resource_count":0}
+        catalog={"resources":[]}
+        error=esc(str(exc))
+    server_rows="".join(
+        f"<tr><td class='mono'>{esc(x.get('server_id',''))}</td><td>{esc(x.get('name',''))}</td><td>{esc('ONLINE' if x.get('online') else 'OFFLINE')}</td><td>{esc(x.get('resource_count',0))}</td><td>{esc(x.get('host',{}).get('hostname','—'))}</td></tr>"
+        for x in report.get("servers",[])
+    )
+    resource_rows="".join(
+        f"<tr><td class='mono'>{esc(x.get('resource_id',''))}</td><td>{esc(x.get('server_name',''))}</td><td>{esc(x.get('name',''))}</td><td>{esc(x.get('protocol',''))}</td><td>{esc(x.get('health_state','UNKNOWN'))}</td></tr>"
+        for x in catalog.get("resources",[])
+    )
+    body=f"""<div class='w'><div class='top'><div><h1>Multi-server GE360</h1><div class='m'>Fase 21 · control plane read-only</div></div><a class='btn' href='/'>← Dashboard</a></div>
+<div class='grid'><div class='card'><div class='n'>{esc(report.get('online_servers',0))}/{esc(report.get('server_count',0))}</div><div class='m'>server online</div></div><div class='card'><div class='n'>{esc(report.get('resource_count',0))}</div><div class='m'>Resource aggregate</div></div><div class='card'><div class='n'>READ</div><div class='m'>remote mode</div></div><div class='card'><div class='n'>NO</div><div class='m'>remote proxy</div></div></div>
+<div class='panel'><h2>Server</h2>{('<p>'+error+'</p>') if error else ''}<div class='tw'><table><tr><th>ID</th><th>Nome</th><th>Stato</th><th>Resource</th><th>Host</th></tr>{server_rows or '<tr><td colspan=5>Nessun server remoto registrato.</td></tr>'}</table></div></div>
+<div class='panel'><h2>Catalogo Resource</h2><div class='tw'><table><tr><th>Resource ID</th><th>Server</th><th>Nome</th><th>Protocollo</th><th>Health</th></tr>{resource_rows or '<tr><td colspan=5>Nessuna Resource.</td></tr>'}</table></div></div>
+<div class='panel'><p><a class='btn' href='/api/servers'>JSON server</a> <a class='btn' href='/api/catalog'>JSON catalogo</a></p><div class='m'>Il control plane aggrega inventario e stato. Non modifica Agent remoti e non proxy-a il traffico applicativo.</div></div></div>"""
+    return shell(body,"Multi-server GE360")
 
 
 def sparkline_svg(values:list[float|int|None], width:int=320, height:int=74)->str:
@@ -612,6 +638,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_body(json.dumps(p2p_status(),indent=2),200,"application/json")
         elif path=="/api/relay":
             self.send_body(json.dumps(local_relay_status(),indent=2),200,"application/json")
+        elif path=="/api/servers":
+            self.send_body(json.dumps(server_status(),indent=2),200,"application/json")
+        elif path=="/api/catalog":
+            self.send_body(json.dumps(build_catalog(),indent=2),200,"application/json")
+        elif path=="/servers": self.send_body(servers_page())
         elif path=="/relay": self.send_body(relay_page())
         elif path=="/p2p": self.send_body(p2p_page())
         elif path=="/nat": self.send_body(nat_page())

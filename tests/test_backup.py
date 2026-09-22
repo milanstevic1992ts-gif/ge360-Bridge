@@ -142,6 +142,33 @@ class BackupTests(unittest.TestCase):
         self.assertIn(str(relay_token), restored["restored"])
         self.assertEqual(relay_token.read_text(encoding="utf-8"), "relay-admin-secret\n")
 
+    def test_optional_multi_server_state_is_backed_up_and_restored(self):
+        optional = {
+            "servers.json": "[]\n",
+            "server-id": "srv_localtest\n",
+            "server.token": "server-token-" + "x" * 32 + "\n",
+            "multi-server-tls.key": "KEY\n",
+            "multi-server-tls.crt": "CERT\n",
+        }
+        for name, value in optional.items():
+            (self.state / name).write_text(value, encoding="utf-8")
+        created = self.backup.create_backup(
+            now=datetime(2026, 9, 22, 11, 0, tzinfo=timezone.utc)
+        )
+        with tarfile.open(self.backups / created["backup"], "r:gz") as tf:
+            names = set(tf.getnames())
+        for name in optional:
+            self.assertIn("state/" + name, names)
+
+        (self.state / "server-id").write_text("srv_changed\n", encoding="utf-8")
+        restored = self.backup.restore_backup(
+            created["backup"],
+            apply=True,
+            create_safety_backup=False,
+        )
+        self.assertIn(str(self.state / "server-id"), restored["restored"])
+        self.assertEqual((self.state / "server-id").read_text(encoding="utf-8"), "srv_localtest\n")
+
     def test_client_private_key_field_blocks_backup(self):
         devices = json.loads((self.state / "devices.json").read_text(encoding="utf-8"))
         devices[0]["private_key"] = "must-never-leave-client"

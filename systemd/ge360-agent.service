@@ -15,6 +15,7 @@ PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
 ReadOnlyPaths=/etc/ge360-agent
+ReadWritePaths=/run
 RestrictSUIDSGID=true
 LockPersonality=true
 

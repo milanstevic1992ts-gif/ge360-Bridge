@@ -18,7 +18,7 @@ from .core import (
 from .health import check_resources
 from .audit import init_db, write_event
 from .metrics import collect_snapshot, init_db as init_metrics_db
-from .launcher import launcher_payload, render_hub, resources_for_launcher
+from .launcher import launcher_payload, multi_server_catalog_payload, render_hub, resources_for_launcher
 
 BIND_HOST = "10.88.0.1"
 HEALTH_PORT = 8788
@@ -104,7 +104,7 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
     request_target = parts[1] if len(parts) >= 2 else "/"
     path = request_target.split("?", 1)[0]
     content_type = "application/json"
-    if path not in ("/", "/healthz", "/v1/status", "/v1/resources", "/hub"):
+    if path not in ("/", "/healthz", "/v1/status", "/v1/resources", "/v1/catalog", "/hub"):
         body = json.dumps({"ok": False, "error": "not_found"}).encode()
         status = "404 Not Found"
     else:
@@ -126,6 +126,18 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             content_type = "text/html; charset=utf-8"
         elif path == "/v1/resources":
             body = json.dumps(launcher_payload(device, resources)).encode()
+        elif path == "/v1/catalog":
+            try:
+                from .multi_server import build_catalog
+                catalog = await asyncio.to_thread(build_catalog)
+                body = json.dumps(multi_server_catalog_payload(device, resources, catalog)).encode()
+            except Exception as exc:
+                body = json.dumps({
+                    "ok": False,
+                    "error": "multi_server_catalog_unavailable",
+                    "detail": str(exc)[:200],
+                }).encode()
+                status = "503 Service Unavailable"
         else:
             body = json.dumps({
                 "ok": True,
@@ -139,7 +151,8 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                 "services": [{"name": r["name"], "url": r["url"]} for r in resources],
                 "launcher_url": f"http://{BIND_HOST}:{HEALTH_PORT}/hub",
             }).encode()
-        status = "200 OK"
+        if path != "/v1/catalog" or not body.startswith(b'{"ok": false'):
+            status = "200 OK"
 
     writer.write(
         f"HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {len(body)}\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n".encode()

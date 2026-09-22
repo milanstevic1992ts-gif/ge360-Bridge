@@ -8,6 +8,7 @@ import os
 import platform
 import shutil
 import socket
+import ssl
 import subprocess
 import threading
 import time
@@ -24,6 +25,8 @@ from .health import check_resources, health_summary
 
 AGENT_STATE_DIR = Path(os.environ.get("GE360_AGENT_STATE_DIR", "/etc/ge360-agent"))
 AGENT_TOKEN_FILE = Path(os.environ.get("GE360_AGENT_TOKEN_FILE", str(AGENT_STATE_DIR / "token")))
+AGENT_TLS_CERT_FILE = Path(os.environ.get("GE360_AGENT_TLS_CERT_FILE", str(AGENT_STATE_DIR / "tls.crt")))
+AGENT_TLS_KEY_FILE = Path(os.environ.get("GE360_AGENT_TLS_KEY_FILE", str(AGENT_STATE_DIR / "tls.key")))
 DEFAULT_BIND = os.environ.get("GE360_AGENT_BIND", "127.0.0.1")
 DEFAULT_PORT = int(os.environ.get("GE360_AGENT_PORT", "8791"))
 DEFAULT_DISCOVERY_TIMEOUT = float(os.environ.get("GE360_AGENT_DISCOVERY_TIMEOUT", "0.6"))
@@ -414,6 +417,11 @@ def serve(
         agent_token=token,
         discovery_timeout=float(discovery_timeout),
     )
+    if AGENT_TLS_CERT_FILE.is_file() and AGENT_TLS_KEY_FILE.is_file():
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+        context.load_cert_chain(certfile=str(AGENT_TLS_CERT_FILE), keyfile=str(AGENT_TLS_KEY_FILE))
+        server.socket = context.wrap_socket(server.socket, server_side=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -14,7 +14,7 @@ say(){ printf '\n==> %s\n' "$*"; }
 
 say "Installazione dipendenze GE360 Linux Agent"
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y python3 iproute2
+DEBIAN_FRONTEND=noninteractive apt-get install -y python3 iproute2 openssl
 
 say "Installazione GE360 Linux Agent"
 install -d -m 700 "$STATE_DIR"
@@ -41,7 +41,16 @@ else
   echo "Configurazione esistente preservata: $STATE_DIR/agent.env"
 fi
 
-chmod 600 "$STATE_DIR/token" "$STATE_DIR/agent.env"
+if [[ ! -s "$STATE_DIR/tls.key" || ! -s "$STATE_DIR/tls.crt" ]]; then
+  umask 077
+  openssl req -x509 -newkey rsa:3072 -nodes -sha256 -days 3650 \
+    -keyout "$STATE_DIR/tls.key" \
+    -out "$STATE_DIR/tls.crt" \
+    -subj "/CN=GE360 Linux Agent" >/dev/null 2>&1
+fi
+
+chmod 600 "$STATE_DIR/token" "$STATE_DIR/agent.env" "$STATE_DIR/tls.key"
+chmod 644 "$STATE_DIR/tls.crt"
 
 install -m 644 "$ROOT_DIR/systemd/ge360-agent.service" /etc/systemd/system/ge360-agent.service
 
@@ -49,10 +58,12 @@ systemctl daemon-reload
 systemctl enable --now ge360-agent.service
 
 say "GE360 Linux Agent installato"
-echo "Versione: GE360 Agent v0.16 - Fase 14"
-echo "API locale: http://127.0.0.1:8791"
-echo "Health pubblico minimo: http://127.0.0.1:8791/healthz"
-echo "Manifest Agent: http://127.0.0.1:8791/.well-known/ge360-agent"
+echo "Versione: GE360 Agent v0.23 - Fase 21 Multi-server"
+echo "API locale: https://127.0.0.1:8791"
+echo "Health pubblico minimo: https://127.0.0.1:8791/healthz"
+echo "Manifest Agent: https://127.0.0.1:8791/.well-known/ge360-agent"
+echo "TLS fingerprint SHA-256:"
+openssl x509 -in "$STATE_DIR/tls.crt" -outform DER | sha256sum | awk '{print $1}'
 echo "Token: sudo cat $STATE_DIR/token"
 echo "Snapshot locale: sudo ge360-agent snapshot"
 echo "Stato servizio: systemctl status ge360-agent --no-pager"

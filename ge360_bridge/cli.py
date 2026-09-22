@@ -60,6 +60,7 @@ from .update_engine import apply_update, download_update, preflight_update, run_
 from .nat_discovery import discover_nat
 from .p2p import p2p_status
 from .relay_client import local_relay_status, monitor_forever, monitor_once, relay_config, relay_remote_status, sync_relay_devices
+from .multi_server import add_server, build_catalog, list_servers, remove_server, server_export, server_status, set_server_enabled
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -507,6 +508,46 @@ def cmd_relay_monitor(_: argparse.Namespace) -> None:
     monitor_forever()
 
 
+def cmd_server_list(_: argparse.Namespace) -> None:
+    print(json.dumps({"servers": list_servers()}, indent=2))
+
+
+def cmd_server_add(args: argparse.Namespace) -> None:
+    must_root()
+    print(json.dumps(add_server(
+        args.name,
+        args.url,
+        args.pin,
+        args.token,
+        server_id=args.server_id,
+        notes=args.notes or "",
+    ), indent=2))
+
+
+def cmd_server_remove(args: argparse.Namespace) -> None:
+    must_root()
+    if not remove_server(args.server):
+        raise BridgeError("Server non trovato.")
+    print(json.dumps({"removed": args.server}, indent=2))
+
+
+def cmd_server_state(args: argparse.Namespace, enabled: bool) -> None:
+    must_root()
+    print(json.dumps(set_server_enabled(args.server, enabled), indent=2))
+
+
+def cmd_server_status(_: argparse.Namespace) -> None:
+    print(json.dumps(server_status(), indent=2))
+
+
+def cmd_server_catalog(_: argparse.Namespace) -> None:
+    print(json.dumps(build_catalog(), indent=2))
+
+
+def cmd_server_export(args: argparse.Namespace) -> None:
+    print(json.dumps(server_export(public_host=args.public_host), indent=2))
+
+
 def cmd_health_check(args: argparse.Namespace) -> None:
     resources = list_resources()
     if args.resource:
@@ -797,6 +838,40 @@ def parser() -> argparse.ArgumentParser:
 
     relay = sub.add_parser("relay-monitor", help=argparse.SUPPRESS)
     relay.set_defaults(func=cmd_relay_monitor)
+
+    ms = sub.add_parser("server-list", help="Fase 21: elenca server GE360 registrati")
+    ms.set_defaults(func=cmd_server_list)
+
+    ms = sub.add_parser("server-add", help="Registra un server GE360 remoto")
+    ms.add_argument("name")
+    ms.add_argument("--url", required=True)
+    ms.add_argument("--pin", required=True, help="SHA-256 certificato TLS server")
+    ms.add_argument("--token", required=True, help="Token server remoto")
+    ms.add_argument("--server-id")
+    ms.add_argument("--notes")
+    ms.set_defaults(func=cmd_server_add)
+
+    ms = sub.add_parser("server-remove", help="Rimuove un server GE360 remoto")
+    ms.add_argument("server")
+    ms.set_defaults(func=cmd_server_remove)
+
+    ms = sub.add_parser("server-enable", help="Abilita un server GE360 remoto")
+    ms.add_argument("server")
+    ms.set_defaults(func=lambda args: cmd_server_state(args, True))
+
+    ms = sub.add_parser("server-disable", help="Disabilita un server GE360 remoto")
+    ms.add_argument("server")
+    ms.set_defaults(func=lambda args: cmd_server_state(args, False))
+
+    ms = sub.add_parser("server-status", help="Stato control plane multi-server")
+    ms.set_defaults(func=cmd_server_status)
+
+    ms = sub.add_parser("server-catalog", help="Catalogo Resource aggregato multi-server")
+    ms.set_defaults(func=cmd_server_catalog)
+
+    ms = sub.add_parser("server-export", help="Esporta invito server per registrazione su un control Bridge")
+    ms.add_argument("--public-host")
+    ms.set_defaults(func=cmd_server_export)
 
     h = sub.add_parser("health-check")
     h.add_argument("resource", nargs="?", help="Nome Resource; senza nome controlla tutte")

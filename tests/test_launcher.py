@@ -1,6 +1,6 @@
 import unittest
 
-from ge360_bridge.launcher import launcher_payload, render_hub, resources_for_launcher
+from ge360_bridge.launcher import launcher_payload, multi_server_catalog_payload, render_hub, resources_for_launcher
 
 
 class LauncherTests(unittest.TestCase):
@@ -76,6 +76,28 @@ class LauncherTests(unittest.TestCase):
         self.assertIn("rilievi",html)
         self.assertNotIn("secret-token",html)
         self.assertNotIn("secret-psk",html)
+
+    def test_multi_server_catalog_preserves_remote_resources_but_filters_local_acl(self):
+        local = [{
+            "name":"rilievi","icon":"ruler","description":"Rilievi","protocol":"http",
+            "bridge_port":9888,"url":"http://10.88.0.1:9888","launchable":True,
+            "health":{"state":"ONLINE"},
+        }]
+        catalog = {
+            "control_server_id":"srv_local",
+            "servers":[{"server_id":"srv_local","name":"local"},{"server_id":"srv_remote","name":"remote"}],
+            "resources":[
+                {"resource_id":"srv_local:rilievi","server_id":"srv_local","name":"rilievi","local":True},
+                {"resource_id":"srv_local:secret","server_id":"srv_local","name":"secret","local":True},
+                {"resource_id":"srv_remote:firefly","server_id":"srv_remote","name":"firefly","local":False},
+            ],
+        }
+        payload=multi_server_catalog_payload(self.device(),local,catalog)
+        ids={x["resource_id"] for x in payload["resources"]}
+        self.assertIn("srv_local:rilievi",ids)
+        self.assertNotIn("srv_local:secret",ids)
+        self.assertIn("srv_remote:firefly",ids)
+        self.assertFalse(payload["remote_resource_proxy"])
 
     def test_payload_schema(self):
         payload=launcher_payload(self.device(),[])

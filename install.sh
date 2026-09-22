@@ -65,6 +65,8 @@ WG_PORT=$WG_PORT
 PUBLIC_ENDPOINT=CHANGE_ME:$WG_PORT
 CLIENT_DNS=
 PAIRING_PORT=$PAIRING_PORT
+GE360_MULTI_SERVER_BIND=0.0.0.0
+GE360_MULTI_SERVER_PORT=8793
 TRAVERSAL_ENABLED=true
 RELAY_ENABLED=false
 RELAY_URL=
@@ -73,6 +75,8 @@ ENV
 else
   echo "Configurazione esistente preservata: $STATE_DIR/bridge.env"
   grep -q '^PAIRING_PORT=' "$STATE_DIR/bridge.env" || echo "PAIRING_PORT=$PAIRING_PORT" >> "$STATE_DIR/bridge.env"
+  grep -q '^GE360_MULTI_SERVER_BIND=' "$STATE_DIR/bridge.env" || echo "GE360_MULTI_SERVER_BIND=0.0.0.0" >> "$STATE_DIR/bridge.env"
+  grep -q '^GE360_MULTI_SERVER_PORT=' "$STATE_DIR/bridge.env" || echo "GE360_MULTI_SERVER_PORT=8793" >> "$STATE_DIR/bridge.env"
   grep -q '^TRAVERSAL_ENABLED=' "$STATE_DIR/bridge.env" || echo "TRAVERSAL_ENABLED=true" >> "$STATE_DIR/bridge.env"
   grep -q '^RELAY_ENABLED=' "$STATE_DIR/bridge.env" || echo "RELAY_ENABLED=false" >> "$STATE_DIR/bridge.env"
   grep -q '^RELAY_URL=' "$STATE_DIR/bridge.env" || echo "RELAY_URL=" >> "$STATE_DIR/bridge.env"

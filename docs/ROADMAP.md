@@ -721,6 +721,43 @@ Chiusura verificata:
 - nessuna apertura firewall automatica;
 - nessun catalogo Resource sul relay, decrypt WireGuard, TURN terzo, auto-VPS o multi-server introdotto.
 
-## Fase 21 — Multi-server GE360 — PROSSIMA, NON AVVIATA
+## Fase 21 — Multi-server GE360 — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
 
-Control plane GE360 con più server e risorse presentate alle app senza dipendere dalla macchina fisica.
+Obiettivo: creare un control plane GE360 read-only che aggrega più server e presenta alle app Resource namespaced per server senza dipendere dalla macchina fisica.
+
+Scope:
+- server_id persistente e token server root-only;
+- Server Registry autoritativo /etc/ge360-bridge/servers.json;
+- registrazione, enable/disable e rimozione server via CLI;
+- control API HTTPS dedicata TCP 8793;
+- certificato self-signed multi-server e certificate pinning SHA-256;
+- autenticazione Bearer per snapshot server;
+- snapshot remoto read-only con host, IP, Resource e health;
+- sanitizzazione rigida dei dati remoti e limite risposta;
+- Resource ID stabile server_id:resource_name;
+- nomi Resource uguali consentiti su server differenti senza collisione;
+- server remoto offline isolato senza bloccare il resto del catalogo;
+- catalogo ge360-multi-server-catalog/v1;
+- endpoint device-facing /v1/catalog;
+- ACL esistenti applicate alle Resource locali;
+- Resource remote presentate come inventario del server di origine;
+- dashboard /servers, /api/servers e /api/catalog;
+- CLI server-export, server-add/list/remove/enable/disable/status/catalog;
+- Linux Agent ancora read-only con TLS opzionale pin-nabile;
+- backup Fase 16 esteso in modo retrocompatibile ai file multi-server;
+- Update Engine Fase 17 esteso alla nuova unit control;
+- remote_mutation=false e remote_resource_proxy=false espliciti;
+- test registry, redazione token, HTTPS-only, sanitizzazione, namespace, offline isolation e catalogo launcher.
+
+Fuori scope Fase 21:
+- restart/self-healing remoto;
+- modifica Resource remota;
+- ACL globali distribuite;
+- proxy applicativo remoto;
+- mesh WireGuard server-to-server;
+- replica database;
+- sincronizzazione audit/metriche;
+- provisioning cloud;
+- discovery LAN indiscriminata.
+
+Criterio di chiusura: CI Python verde, Update Engine reale v0.23 build/preflight verde, Server Registry e token privacy verificati, catalogo multi-server namespaced verificato, server offline isolato verificato, backup compatibile verificato e nessuna mutazione remota introdotta.

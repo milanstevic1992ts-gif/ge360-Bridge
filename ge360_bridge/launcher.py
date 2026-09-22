@@ -43,6 +43,28 @@ def resources_for_launcher(
     return out
 
 
+def multi_server_catalog_payload(
+    device: dict[str, Any],
+    local_resources: list[dict[str, Any]],
+    catalog: dict[str, Any],
+) -> dict[str, Any]:
+    local_allowed = {item["name"] for item in local_resources}
+    resources: list[dict[str, Any]] = []
+    for item in catalog.get("resources", []):
+        if item.get("local") and item.get("name") not in local_allowed:
+            continue
+        resources.append(dict(item))
+    return {
+        "schema": "ge360-resource-launcher-multi/v1",
+        "device": device.get("name"),
+        "device_id": device.get("device_id"),
+        "control_server_id": catalog.get("control_server_id"),
+        "servers": catalog.get("servers", []),
+        "resources": resources,
+        "remote_resource_proxy": False,
+    }
+
+
 def render_hub(device: dict[str, Any], resources: list[dict[str, Any]]) -> str:
     esc=lambda x: html.escape(str(x),quote=True)
     cards=[]

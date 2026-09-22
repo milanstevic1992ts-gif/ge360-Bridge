@@ -153,6 +153,10 @@ class LinuxAgentTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=2)
 
+    def test_agent_can_wrap_server_socket_with_tls_files(self):
+        self.assertTrue(hasattr(self.agent, "AGENT_TLS_CERT_FILE"))
+        self.assertTrue(hasattr(self.agent, "AGENT_TLS_KEY_FILE"))
+
     def test_bind_rejects_dns_names(self):
         self.assertEqual(self.agent.validate_bind("127.0.0.1"), "127.0.0.1")
         with self.assertRaises(Exception):

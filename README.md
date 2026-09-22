@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.5 — Fase 3: Pairing sicuro v2**.
+Versione corrente: **v0.5 — Fase 3 completata: Pairing sicuro v2**. La Fase 4 è la prossima e non è ancora stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

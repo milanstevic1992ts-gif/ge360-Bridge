@@ -21,7 +21,7 @@ device_id stabile, metadati, rename, enable/disable, scadenza, note, tag e migra
 
 Gruppi persistenti, membership tramite device_id, servizi concessi ai gruppi e override allow/deny/inherit per singolo device.
 
-## Fase 3 — Pairing sicuro v2 — CORRENTE
+## Fase 3 — Pairing sicuro v2 — COMPLETATA
 
 Obiettivo: eliminare la private key del client dal QR e dal server durante la creazione dei nuovi device.
 
@@ -59,7 +59,7 @@ Fuori scope Fase 3:
 
 Criterio di chiusura: test e CI verdi, token non presente in chiaro nello stato, private key client mai presente nel payload server, replay e token scaduti rifiutati.
 
-## Fase 4 — Resource Registry
+## Fase 4 — Resource Registry — PROSSIMA, NON AVVIATA
 
 Entità Resource con nome, icona, descrizione, protocollo, bridge port, target, health URL, timeout e ACL.
 

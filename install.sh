@@ -175,7 +175,7 @@ if [[ -n "$WAN4" ]]; then
 fi
 
 say "Installazione completata"
-echo "Versione: GE360 Bridge v0.19 - Fase 17 Update Engine"
+echo "Versione: GE360 Bridge v0.20 - Fase 18 NAT Discovery"
 echo "Dashboard locale: http://127.0.0.1:8789"
 echo "Dashboard via Bridge: http://10.88.0.1:8789"
 echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
@@ -193,4 +193,5 @@ echo "Linux Agent per host aggiuntivi: sudo ./install-agent.sh"
 echo "Self-healing: ge360-bridge self-heal-status | sudo ge360-bridge self-heal-run --dry-run"
 echo "Backup: sudo ge360-bridge backup-list | sudo ge360-bridge backup-create"
 echo "Update Engine: sudo ge360-bridge update-status | sudo ge360-bridge update-run https://... --sha256 <SHA256>"
+echo "NAT Discovery: ge360-bridge nat-discover"
 echo "I vecchi comandi service-* restano alias compatibili."

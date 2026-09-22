@@ -1,74 +1,79 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.19 — Fase 17 completata: Update Engine**. La Fase 18 — NAT Discovery è la prossima e non è stata avviata.
+Versione corrente: **v0.20 — Fase 18: NAT Discovery in verifica CI**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## Update Engine
+## NAT Discovery
 
-GE360 Bridge può ora applicare pacchetti software controllati con:
+GE360 Bridge può ora osservare la rete Internet del server senza modificare NAT o firewall.
+
+Comando:
+
+```bash
+ge360-bridge nat-discover
+```
+
+Il report include:
 
 ```text
-HTTPS download
-SHA-256 obbligatorio
-preflight
-backup configurazione
-snapshot software rollback
-installazione atomica
-health check
-rollback automatico
+IPv4 pubblico osservato via STUN
+mapped UDP endpoint diagnostico
+IPv6 globali
+WAN IPv4 router via UPnP read-only
+indizi CGNAT
+mapping behavior NAT
+filtering behavior quando verificabile via RFC 5780
 ```
 
-Comando completo:
+Dashboard:
+
+```text
+/nat
+/api/nat
+```
+
+La classificazione evita di inventare un NAT type quando i dati non bastano. Con una sola destinazione STUN il tipo resta `UNKNOWN`; mapping che cambia tra destinazioni viene indicato come `SYMMETRIC_LIKE_MAPPING`, non come prova assoluta di NAT simmetrico.
+
+## Guardrail Fase 18
+
+```text
+wireguard_port_inferred=false
+phase19_traversal_attempted=false
+port_mapping_changed=false
+```
+
+La Fase 18 non esegue hole punching, non crea port forwarding e non modifica `PUBLIC_ENDPOINT`.
+
+## Server STUN
+
+Default:
+
+```text
+stun.cloudflare.com:3478
+stun.cloudflare.com:53
+```
+
+Override CLI:
 
 ```bash
-sudo ge360-bridge update-run \
-  https://server.example/ge360-update-vNEXT.tar.gz \
-  --sha256 <SHA256>
+ge360-bridge nat-discover --server stun.example.net:3478
 ```
 
-Verifica senza installare:
+oppure in `/etc/ge360-bridge/bridge.env`:
 
-```bash
-sudo ge360-bridge update-verify /percorso/update.tar.gz
+```text
+STUN_SERVERS=stun.example.net:3478,stun2.example.net:3478
 ```
 
-Stato:
+## Update Engine e backup
 
-```bash
-sudo ge360-bridge update-status
-```
-
-L'Update Engine non esegue `install.sh` scaricati e non permette al manifest di scegliere percorsi arbitrari sul server.
-
-Se l'health check post-update fallisce, vengono ripristinati software precedente e backup configurazione pre-update, poi viene verificata nuovamente la salute del Bridge.
-
-## Creazione pacchetto
-
-```bash
-python scripts/build-update-package.py \
-  --source . \
-  --output /tmp/ge360-update.tar.gz
-```
-
-Il builder restituisce anche lo SHA-256 da distribuire insieme al pacchetto.
-
-## Backup configurazione
-
-La Fase 16 resta attiva con un backup al giorno e retention 10 copie.
-
-## Self-healing
-
-Il self-healing resta opt-in per Resource con limite 3 restart / 10 minuti.
-
-## Nessun auto-update
-
-La Fase 17 non controlla né installa automaticamente nuove release. URL e SHA-256 devono essere forniti esplicitamente.
+Fase 17 Update Engine e Fase 16 Backup configurazione restano attivi e separati dalla diagnostica NAT.
 
 Vedi:
 
 ```text
+docs/NAT_DISCOVERY.md
 docs/UPDATE_ENGINE.md
 docs/BACKUP_CONFIG.md
-docs/SELF_HEALING.md
 ```

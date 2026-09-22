@@ -525,9 +525,49 @@ Chiusura verificata:
 - workflow Android non modificato e ultimo run su main verde;
 - nessun auto-update, NAT discovery/traversal, relay o multi-server introdotto.
 
-## Fase 18 — NAT Discovery — PROSSIMA, NON AVVIATA
+## Fase 18 — NAT Discovery — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
 
-STUN, endpoint discovery, rilevamento CGNAT e tipo NAT.
+Obiettivo: osservare endpoint pubblico e comportamento NAT/CGNAT del server senza modificare port mapping, firewall o WireGuard e senza anticipare il traversal P2P.
+
+Scope:
+- client STUN UDP Binding Request RFC 5389 in stdlib Python;
+- parsing XOR-MAPPED-ADDRESS e MAPPED-ADDRESS;
+- parsing RESPONSE-ORIGIN e OTHER-ADDRESS RFC 5780;
+- CHANGE-REQUEST IP+port soltanto come test diagnostico quando OTHER-ADDRESS è disponibile;
+- server STUN configurabili via CLI o STUN_SERVERS in bridge.env;
+- default STUN su due destinazioni UDP;
+- massimo 6 server STUN;
+- timeout limitato 0.2..5.0 secondi;
+- stessa socket UDP locale riusata per confrontare mapping verso destinazioni STUN distinte;
+- IPv4 pubblico e mapped port diagnostica;
+- IPv4 locale instradato;
+- IPv6 globali locali;
+- lettura WAN IPv4 router tramite upnpc -s soltanto;
+- nessun upnpc -a/-d e nessuna modifica port mapping;
+- classificazione NAT prudente NO_NAT, ENDPOINT_INDEPENDENT_MAPPING, SYMMETRIC_LIKE_MAPPING, UNKNOWN;
+- filtering ENDPOINT_INDEPENDENT soltanto con evidenza RFC 5780, altrimenti UNKNOWN;
+- rilevamento port preservation della sola socket diagnostica;
+- CGNAT YES/LIKELY/POSSIBLE/NO_EVIDENCE/UNKNOWN con confidence e reason;
+- riconoscimento RFC 6598 100.64.0.0/10;
+- distinzione esplicita tra CGNAT e possibile double NAT quando l'evidenza non è definitiva;
+- schema ge360-nat-discovery/v1;
+- CLI nat-discover;
+- dashboard autenticata /nat e /api/nat;
+- cache dashboard soltanto in memoria 30 secondi;
+- campi guardrail wireguard_port_inferred=false, phase19_traversal_attempted=false e port_mapping_changed=false;
+- test dedicati parser STUN, transaction ID, NAT mapping, CGNAT, IPv6, UPnP read-only e guardrail Phase 19.
+
+Fuori scope Fase 18:
+- hole punching;
+- rendezvous o scambio endpoint tra peer;
+- modifica automatica PUBLIC_ENDPOINT;
+- port forwarding UPnP;
+- NAT-PMP/PCP mapping;
+- WireGuard traversal;
+- relay;
+- multi-server control plane.
+
+Criterio di chiusura: CI Python verde, parser STUN e classificazioni deterministiche testati, UPnP verificato read-only, dashboard/CLI compilano, nessuna funzione Fase 19 anticipata.
 
 ## Fase 19 — NAT Traversal P2P
 

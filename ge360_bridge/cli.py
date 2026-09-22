@@ -57,6 +57,7 @@ from .discovery import discover_backends, import_discovered_backend
 from .self_healing import run_self_heal, self_heal_status
 from .backup import create_backup, list_backups, restore_backup, verify_backup
 from .update_engine import apply_update, download_update, preflight_update, run_update, update_status, verify_update
+from .nat_discovery import discover_nat
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -469,6 +470,11 @@ def cmd_update_status(_: argparse.Namespace) -> None:
     print(json.dumps(update_status(), indent=2))
 
 
+def cmd_nat_discover(args: argparse.Namespace) -> None:
+    report = discover_nat(args.server or None, timeout=args.timeout, use_cache=False)
+    print(json.dumps(report, indent=2))
+
+
 def cmd_health_check(args: argparse.Namespace) -> None:
     resources = list_resources()
     if args.resource:
@@ -738,6 +744,11 @@ def parser() -> argparse.ArgumentParser:
 
     u = sub.add_parser("update-status", help="Mostra ultimo aggiornamento e snapshot rollback disponibili")
     u.set_defaults(func=cmd_update_status)
+
+    n = sub.add_parser("nat-discover", help="Fase 18: STUN, endpoint pubblico, CGNAT e comportamento NAT")
+    n.add_argument("--server", action="append", default=[], help="Server STUN host:port; ripetibile")
+    n.add_argument("--timeout", type=float, default=1.2)
+    n.set_defaults(func=cmd_nat_discover)
 
     h = sub.add_parser("health-check")
     h.add_argument("resource", nargs="?", help="Nome Resource; senza nome controlla tutte")

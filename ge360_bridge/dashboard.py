@@ -31,6 +31,7 @@ from .doctor import connection_doctor
 from .audit import count_events, list_events
 from .metrics import query_series
 from .discovery import discover_backends, import_discovered_backend
+from .nat_discovery import discover_nat
 
 PORT = 8789
 STATE_DIR = Path(os.environ.get("GE360_BRIDGE_STATE_DIR", "/etc/ge360-bridge"))
@@ -311,8 +312,8 @@ def dashboard_page(error:str="")->str:
         sv.append(f"<tr><td><b>{esc(service.get('icon','server'))} {esc(service['name'])}</b><div class='m'>{esc(service.get('description',''))}</div></td><td><span class='dot {dot_class}'></span><b>{esc(state)}</b><div class='m'>{esc(h.get('latency_ms') if h.get('latency_ms') is not None else '—')} ms</div><div class='m'>{esc(' · '.join(details))}</div>{error_html}</td><td><b>{esc(service.get('protocol','tcp').upper())}</b><div class='m mono'>{esc(service['bridge_url'])}</div><div class='m mono'>{esc(service['target'])}</div><div class='m'>health: {esc(service.get('health_url') or '—')} · timeout {esc(service.get('timeout_seconds',2.0))}s</div></td><td>{'<br>'.join(esc(x) for x in access) or '—'}</td><td><a class='btn small' href='/resource/{esc(service['name'])}'>Gestisci</a></td></tr>")
     service_checks="".join(f"<label><input type='checkbox' name='service' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in services) or "—"
     group_checks="".join(f"<label><input type='checkbox' name='group' value='{esc(x['name'])}'>{esc(x['name'])}</label>" for x in groups if x.get("enabled",True)) or "—"
-    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 15 · Self-healing</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
-<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>Resource ONLINE</div></div><div class='card'><div class='n'>{c.get('degraded_services',0)}</div><div class='m'>Resource DEGRADED</div></div><div class='card'><div class='n'>v0.17</div><div class='m'>Bridge</div></div></div>
+    body=f"""<div class='w'><div class='top'><div><h1>GE360 Universal Bridge</h1><div class='m'>FASE 18 · NAT Discovery</div></div><span class='pill mono'>{esc(s['bridge']['public_endpoint'])}</span></div>{banner}
+<div class='grid'><div class='card'><div class='n'>{c['online_devices']}/{c['devices']}</div><div class='m'>device online</div></div><div class='card'><div class='n'>{c['healthy_services']}/{c['services']}</div><div class='m'>Resource ONLINE</div></div><div class='card'><div class='n'>{c.get('degraded_services',0)}</div><div class='m'>Resource DEGRADED</div></div><div class='card'><div class='n'>v0.20</div><div class='m'>Bridge</div></div></div>
 <div class='panel'><h2>Dispositivi</h2><div class='tw'><table><tr><th>Device</th><th>Stato</th><th>Gruppi</th><th>Accesso effettivo</th><th>Handshake</th><th></th></tr>{''.join(dr) or '<tr><td colspan=6>Nessun device</td></tr>'}</table></div></div>
 <div class='panel'><h2>Gruppi</h2><div class='tw'><table><tr><th>Gruppo</th><th>Device</th><th>Resource</th><th>Stato</th><th></th></tr>{''.join(gr) or '<tr><td colspan=5>Nessun gruppo</td></tr>'}</table></div></div>
 <div class='panel'><h2>Audit Log</h2><div class='m'>Eventi persistenti: {count_events()}</div><div class='tw'><table><tr><th>Ora</th><th>Evento</th><th>Device</th><th>Resource</th><th>Risultato</th></tr>{''.join(f"<tr><td class='mono'>{esc(e.get('timestamp'))}</td><td>{esc(e.get('event'))}</td><td>{esc(e.get('device_name') or e.get('device_id') or '—')}</td><td>{esc(e.get('resource') or '—')}</td><td>{esc(e.get('result') or e.get('error') or '—')}</td></tr>" for e in list_events(limit=20)) or '<tr><td colspan=5>Nessun evento</td></tr>'}</table></div><p><a class='btn' href='/api/audit'>JSON audit</a></p></div>
@@ -320,7 +321,7 @@ def dashboard_page(error:str="")->str:
 <div class='panel'><h2>Registra Resource</h2><form method='post' action='/resource/add'><div class='forms'><div class='box'><label>Nome</label><input name='name' placeholder='rilievi' required><label>Icona</label><input name='icon' value='server'><label>Descrizione</label><textarea name='description'></textarea><label>Protocollo</label><select name='protocol'><option value='http'>HTTP</option><option value='https'>HTTPS</option><option value='tcp'>TCP</option></select></div><div class='box'><label>Bridge port</label><input type='number' name='bridge_port' min='1' max='65535' required><label>Target host</label><input name='target_host' value='127.0.0.1' required><label>Target port</label><input type='number' name='target_port' min='1' max='65535' required><label>Health URL/path opzionale</label><input name='health_url' placeholder='/healthz'><label>Timeout secondi</label><input type='number' name='timeout' min='0.1' max='30' step='0.1' value='2.0'><label>Systemd unit opzionale</label><input name='systemd_unit' placeholder='ge360-rilievi.service'><label><input type='checkbox' name='self_heal' value='1' style='width:auto'> abilita self-healing</label><div class='m'>Solo backend applicativi. Limite globale per Resource: 3 restart / 10 minuti.</div><p><button class='primary'>Registra Resource</button></p></div></div></form></div>
 <div class='panel forms'><div class='box'><h3>Crea gruppo</h3><form method='post' action='/group/create'><label>Nome</label><input name='name' placeholder='amministratori' required><label>Descrizione</label><textarea name='description'></textarea><p><button class='primary'>Crea gruppo</button></p></form></div>
 <div class='box'><h3>Pairing sicuro v2</h3><form method='post' action='/device/add'><label>Nome device</label><input name='name' required><label>Tipo</label><select name='device_type'><option>android</option><option>tablet</option><option>linux</option><option>windows</option><option>server</option><option selected>unknown</option></select><label>Proprietario</label><input name='owner'><label>Tag</label><input name='tags'><label>Scadenza device</label><input type='date' name='expires_at'><label>Gruppi iniziali</label><div class='checks'>{group_checks}</div><label>TTL token</label><select name='ttl'><option value='300'>5 minuti</option><option value='600' selected>10 minuti</option><option value='1800'>30 minuti</option><option value='86400'>24 ore</option></select><p><button class='primary'>Genera QR v2 monouso</button></p></form></div></div>
-<div class='panel'><b>Launcher device</b><div class='mono'>http://10.88.0.1:8788/hub</div><div class='m'>Visibile ai device VPN e filtrato dalle ACL effettive.</div></div><div class='panel row'><div><a class='btn' href='/discovery'>Backend discovery</a> <a class='btn' href='/metrics'>Metriche</a> <a class='btn' href='/api/status'>JSON</a></div><a class='btn' href='/logout'>Esci</a></div></div>"""
+<div class='panel'><b>Launcher device</b><div class='mono'>http://10.88.0.1:8788/hub</div><div class='m'>Visibile ai device VPN e filtrato dalle ACL effettive.</div></div><div class='panel row'><div><a class='btn' href='/discovery'>Backend discovery</a> <a class='btn' href='/nat'>NAT discovery</a> <a class='btn' href='/metrics'>Metriche</a> <a class='btn' href='/api/status'>JSON</a></div><a class='btn' href='/logout'>Esci</a></div></div>"""
     return shell(body,refresh=True)
 
 
@@ -350,6 +351,30 @@ def discovery_page(error:str="")->str:
 <div class='panel'><div class='tw'><table><tr><th>Backend</th><th>Target</th><th>Health</th><th>Stato</th><th></th></tr>{''.join(rows) or '<tr><td colspan=5>Nessun backend GE360 rilevato.</td></tr>'}</table></div></div>
 <div class='panel'><p><a class='btn' href='/api/discovery'>JSON discovery</a></p><div class='m'>La scansione non importa automaticamente nulla e non esce dal loopback.</div></div></div>"""
     return shell(body)
+
+
+def nat_page()->str:
+    report=discover_nat(use_cache=True)
+    nat=report.get("nat",{})
+    cgnat=report.get("cgnat",{})
+    endpoint=report.get("public_endpoint_observation",{})
+    upnp=report.get("upnp_status_read_only",{})
+    observations=report.get("stun",{}).get("observations",[])
+    rows=[]
+    for item in observations:
+        rows.append(
+            f"<tr><td>{esc(item.get('server',''))}</td>"
+            f"<td class='mono'>{esc(item.get('remote_ip',''))}:{esc(item.get('remote_port',''))}</td>"
+            f"<td class='mono'>{esc(item.get('mapped_ip',''))}:{esc(item.get('mapped_port',''))}</td></tr>"
+        )
+    ipv6=", ".join(endpoint.get("global_ipv6",[]) or []) or "—"
+    wan=upnp.get("ip") or "—"
+    body=f"""<div class='w'><div class='top'><div><h1>NAT Discovery</h1><div class='m'>Fase 18 · STUN diagnostico · nessun port mapping/traversal</div></div><a class='btn' href='/'>← Dashboard</a></div>
+<div class='grid'><div class='card'><div class='n'>{esc(nat.get('type','UNKNOWN'))}</div><div class='m'>tipo/mapping NAT</div></div><div class='card'><div class='n'>{esc(cgnat.get('status','UNKNOWN'))}</div><div class='m'>CGNAT · confidenza {esc(cgnat.get('confidence','LOW'))}</div></div><div class='card'><div class='n'>{esc(endpoint.get('public_ipv4_observed') or '—')}</div><div class='m'>IPv4 pubblico STUN</div></div><div class='card'><div class='n'>{esc('SÌ' if endpoint.get('global_ipv6_available') else 'NO')}</div><div class='m'>IPv6 globale</div></div></div>
+<div class='panel'><h2>Classificazione</h2><div class='tw'><table><tr><th>Voce</th><th>Valore</th></tr><tr><td>Mapping behavior</td><td>{esc(nat.get('mapping_behavior','UNKNOWN'))}</td></tr><tr><td>Filtering behavior</td><td>{esc(nat.get('filtering_behavior','UNKNOWN'))}</td></tr><tr><td>Port preservation</td><td>{esc(nat.get('port_preservation'))}</td></tr><tr><td>Motivo NAT</td><td>{esc(nat.get('reason',''))}</td></tr><tr><td>Motivo CGNAT</td><td>{esc(cgnat.get('reason',''))}</td></tr><tr><td>WAN router (UPnP read-only)</td><td class='mono'>{esc(wan)}</td></tr><tr><td>IPv6 globali</td><td class='mono'>{esc(ipv6)}</td></tr></table></div></div>
+<div class='panel'><h2>Osservazioni STUN</h2><div class='tw'><table><tr><th>Server</th><th>Destinazione</th><th>Mapped endpoint</th></tr>{''.join(rows) or '<tr><td colspan=3>Nessuna risposta STUN valida.</td></tr>'}</table></div></div>
+<div class='panel'><p><a class='btn' href='/api/nat'>JSON NAT discovery</a></p><div class='m'>STUN usa una socket UDP diagnostica: la porta mapped mostrata NON dimostra che WireGuard 51820 sia raggiungibile. Fase 19 traversal non avviata.</div></div></div>"""
+    return shell(body,"NAT Discovery")
 
 
 def sparkline_svg(values:list[float|int|None], width:int=320, height:int=74)->str:
@@ -539,6 +564,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_body(json.dumps({"events":list_events(limit=200)},indent=2),200,"application/json")
         elif path=="/api/discovery":
             self.send_body(json.dumps(discover_backends(),indent=2),200,"application/json")
+        elif path=="/api/nat":
+            self.send_body(json.dumps(discover_nat(use_cache=True),indent=2),200,"application/json")
+        elif path=="/nat": self.send_body(nat_page())
         elif path=="/discovery": self.send_body(discovery_page())
         elif path.startswith("/device/"): self.send_body(device_page(path.split("/",2)[2]))
         elif path.startswith("/group/"): self.send_body(group_page(path.split("/",2)[2]))

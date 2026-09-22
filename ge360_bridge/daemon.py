@@ -13,6 +13,7 @@ from .core import (
     list_groups,
     list_resources,
 )
+from .health import check_resources
 
 BIND_HOST = "10.88.0.1"
 HEALTH_PORT = 8788
@@ -76,6 +77,9 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         status = "404 Not Found"
     else:
         device = active_devices[peer_ip]
+        effective = effective_resources_for_device(device, resources_all, groups)
+        health_results = await asyncio.to_thread(check_resources, effective)
+        health_by_name = {h["name"]: h for h in health_results}
         resources = [
             {
                 "name": r["name"],
@@ -83,9 +87,10 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                 "description": r.get("description",""),
                 "protocol": r.get("protocol","tcp"),
                 "bridge_port": r["bridge_port"],
-                "url": f"http://{BIND_HOST}:{r['bridge_port']}",
+                "url": f"{r.get('protocol','tcp')}://{BIND_HOST}:{r['bridge_port']}",
+                "health": health_by_name.get(r["name"]),
             }
-            for r in effective_resources_for_device(device, resources_all, groups)
+            for r in effective
         ]
         memberships = [
             g["name"] for g in groups

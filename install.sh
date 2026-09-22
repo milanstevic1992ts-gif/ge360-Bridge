@@ -160,11 +160,12 @@ if [[ -n "$WAN4" ]]; then
 fi
 
 say "Installazione completata"
-echo "Versione: GE360 Bridge v0.6 - Fase 4 Resource Registry"
+echo "Versione: GE360 Bridge v0.7 - Fase 5 Health Engine"
 echo "Dashboard locale: http://127.0.0.1:8789"
 echo "Dashboard via Bridge: http://10.88.0.1:8789"
 echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
 echo "Pairing HTTPS: porta TCP $PAIRING_PORT"
 echo "Roadmap: docs/ROADMAP.md"
-echo "Esempio Resource: sudo ge360-bridge resource-add rilievi --port 9888 --target-port 9888 --protocol http --health-url /healthz"
+echo "Health Engine: ge360-bridge health-check"
+echo "Esempio: ge360-bridge health-check rilievi --no-cache"
 echo "I vecchi comandi service-* restano alias compatibili."

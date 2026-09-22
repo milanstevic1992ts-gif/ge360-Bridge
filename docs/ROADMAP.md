@@ -60,9 +60,38 @@ Fuori scope Fase 4:
 
 Criterio di chiusura: test e CI verdi, migrazione v0.5 senza perdita di porta/target/ACL/gruppi e compatibilità service-* verificata.
 
-## Fase 5 — Health Engine — PROSSIMA, NON AVVIATA
+## Fase 5 — Health Engine — CORRENTE
 
-Controlli TCP/HTTP, status code, latenza, risposta JSON, TLS e stati ONLINE/DEGRADED/OFFLINE/TIMEOUT/UNAUTHORIZED/BAD_RESPONSE.
+Obiettivo: misurare lo stato attuale di ogni Resource con un unico motore condiviso da dashboard, CLI e status Bridge.
+
+Scope obbligatorio:
+- check TCP target host/port;
+- latenza TCP e totale;
+- GET HTTP/HTTPS quando health_url è configurata;
+- status code HTTP;
+- validazione body JSON senza interpretare semantica applicativa;
+- verifica TLS standard per HTTPS con versione/cipher quando disponibili;
+- timeout per Resource;
+- stati ONLINE, DEGRADED, OFFLINE, TIMEOUT, UNAUTHORIZED e BAD_RESPONSE;
+- limite body health;
+- controlli paralleli;
+- piccola cache solo in memoria per evitare check duplicati;
+- CLI health-check;
+- endpoint dashboard autenticato /api/health;
+- stato health incluso nel /v1/status per le Resource accessibili al device;
+- dashboard con stato, latenza e sotto-controlli TCP/HTTP/JSON/TLS.
+
+Fuori scope Fase 5:
+- ping ICMP;
+- DNS diagnostico;
+- traceroute;
+- test PDF/API specifici;
+- Connection Doctor;
+- storico metriche;
+- audit;
+- self-healing.
+
+Criterio di chiusura: test e CI verdi per tutti gli stati previsti e nessuna regressione sul proxy Resource.
 
 ## Fase 6 — Diagnostica avanzata
 

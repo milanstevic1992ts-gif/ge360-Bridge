@@ -48,6 +48,7 @@ from .core import (
     wg_keypair,
 )
 from .pairing import create_pairing_payload, list_enrollments
+from .health import check_resource, check_resources, health_summary
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -371,6 +372,16 @@ def cmd_resource_list(_: argparse.Namespace) -> None:
     print(json.dumps({"resources": list_resources()}, indent=2))
 
 
+def cmd_health_check(args: argparse.Namespace) -> None:
+    resources = list_resources()
+    if args.resource:
+        resources = [r for r in resources if r.get("name") == args.resource]
+        if not resources:
+            raise BridgeError(f"Resource non trovata: {args.resource}")
+    results = check_resources(resources, use_cache=not args.no_cache)
+    print(json.dumps({"summary": health_summary(results), "resources": results}, indent=2))
+
+
 def cmd_list(_: argparse.Namespace) -> None:
     safe_devices = [{k: v for k, v in d.items() if k not in ("preshared_key", "token")} for d in list_devices()]
     print(json.dumps({"devices": safe_devices, "groups": list_groups(), "resources": list_resources(), "services": list_services()}, indent=2))
@@ -386,24 +397,33 @@ def port_open(host: str, port: int) -> bool:
 
 def cmd_status(_: argparse.Namespace) -> None:
     env = load_env()
+    resources = list_resources()
+    health_results = check_resources(resources)
+    health_by_name = {h["name"]: h for h in health_results}
     status = {
         "wireguard_config": WG_CONF.exists(),
         "services_file": SERVICES_FILE.exists(),
         "resource_registry": True,
+        "health_engine": True,
         "endpoint": endpoint(),
         "health_url": f"http://{DEFAULT_SERVER_VPN_IP}:{HEALTH_PORT}/v1/status",
         "groups": len(list_groups()),
+        "health_summary": health_summary(health_results),
+        "resources": [],
         "services": [],
     }
-    for s in list_services():
-        status["services"].append({
-            "name": s["name"],
-            "target": f"{s['target_host']}:{s['target_port']}",
-            "target_reachable": port_open(s["target_host"], int(s["target_port"])),
-            "bridge_port": s["listen_port"],
-            "allowed_devices": s.get("allowed_devices", []),
-            "denied_devices": s.get("denied_devices", []),
-        })
+    for resource in resources:
+        item = {
+            "name": resource["name"],
+            "protocol": resource.get("protocol","tcp"),
+            "target": f"{resource['target_host']}:{resource['target_port']}",
+            "bridge_port": resource["bridge_port"],
+            "allowed_devices": resource.get("allowed_devices", []),
+            "denied_devices": resource.get("denied_devices", []),
+            "health": health_by_name.get(resource["name"]),
+        }
+        status["resources"].append(item)
+        status["services"].append(item)
     status["wg_port"] = int(env.get("WG_PORT", DEFAULT_WG_PORT))
     print(json.dumps(status, indent=2))
 
@@ -493,6 +513,11 @@ def parser() -> argparse.ArgumentParser:
 
     r = sub.add_parser("resource-remove"); r.add_argument("name"); r.set_defaults(func=cmd_resource_remove)
     r = sub.add_parser("resource-list"); r.set_defaults(func=cmd_resource_list)
+
+    h = sub.add_parser("health-check")
+    h.add_argument("resource", nargs="?", help="Nome Resource; senza nome controlla tutte")
+    h.add_argument("--no-cache", action="store_true")
+    h.set_defaults(func=cmd_health_check)
 
     l = sub.add_parser("list"); l.set_defaults(func=cmd_list)
     st = sub.add_parser("status"); st.set_defaults(func=cmd_status)

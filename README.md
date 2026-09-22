@@ -1,20 +1,33 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.6 — Fase 4 completata: Resource Registry**. La Fase 5 è la prossima e non è ancora stata avviata.
+Versione corrente: **v0.7 — Fase 5: Health Engine**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## Resource Registry
+## Health Engine
 
-Da v0.6 il registro autoritativo dei backend è:
+Il Bridge controlla ogni Resource con lo stesso motore usato da dashboard, CLI e `/v1/status`.
+
+Stati:
 
 ```text
-/etc/ge360-bridge/resources.json
+ONLINE
+DEGRADED
+OFFLINE
+TIMEOUT
+UNAUTHORIZED
+BAD_RESPONSE
 ```
 
-Ogni Resource descrive nome, icona, descrizione, protocollo, bridge port, target locale, health URL, timeout e ACL.
+Controlli disponibili in Fase 5:
 
-Il vecchio `services.json` resta come mirror di compatibilità e i comandi `service-*` continuano a funzionare.
+- TCP;
+- latenza;
+- HTTP/HTTPS;
+- status code;
+- validazione JSON;
+- TLS;
+- timeout per Resource.
 
 ## Aggiornamento
 
@@ -24,36 +37,47 @@ git pull
 sudo ./install.sh
 ```
 
-L'installer migra automaticamente i servizi v0.5 senza perdere porte, target, ACL o gruppi.
+## Rilievi
 
-## Esempio Rilievi
-
-```bash
-sudo ge360-bridge resource-add rilievi \
-  --port 9888 \
-  --target-host 127.0.0.1 \
-  --target-port 9888 \
-  --protocol http \
-  --icon ruler \
-  --description "GE360 Rilievi" \
-  --health-url /healthz \
-  --timeout 2
-```
-
-Se `rilievi` esiste già dopo la migrazione:
+Assicurati che la Resource abbia il suo health endpoint:
 
 ```bash
 sudo ge360-bridge resource-update rilievi \
   --protocol http \
-  --icon ruler \
-  --description "GE360 Rilievi" \
-  --health-url /healthz
+  --health-url /healthz \
+  --timeout 2
+```
+
+Poi:
+
+```bash
+ge360-bridge health-check rilievi --no-cache
+```
+
+## Dashboard
+
+```text
+http://127.0.0.1:8789
+```
+
+Mostra per ogni Resource:
+
+- stato;
+- latenza;
+- TCP;
+- HTTP status;
+- JSON;
+- TLS;
+- eventuale errore.
+
+API health autenticata:
+
+```text
+GET /api/health
 ```
 
 ## Importante
 
-La Fase 4 **non implementa ancora il Health Engine**. Health URL e timeout vengono soltanto registrati e validati. Il proxy rimane TCP e stabile come nelle fasi precedenti.
+La Fase 5 non introduce diagnostica avanzata. Ping, DNS, traceroute, test PDF e Connection Doctor appartengono alle Fasi 6 e 7.
 
-Il Health Engine vero è la Fase 5.
-
-Vedi `docs/RESOURCE_REGISTRY.md`.
+Vedi `docs/HEALTH_ENGINE.md`.

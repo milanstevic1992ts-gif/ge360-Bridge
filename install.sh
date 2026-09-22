@@ -160,7 +160,7 @@ if [[ -n "$WAN4" ]]; then
 fi
 
 say "Installazione completata"
-echo "Versione: GE360 Bridge v0.8 - Fase 6 Diagnostica avanzata"
+echo "Versione: GE360 Bridge v0.9 - Fase 7 Connection Doctor"
 echo "Dashboard locale: http://127.0.0.1:8789"
 echo "Dashboard via Bridge: http://10.88.0.1:8789"
 echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
@@ -168,4 +168,5 @@ echo "Pairing HTTPS: porta TCP $PAIRING_PORT"
 echo "Roadmap: docs/ROADMAP.md"
 echo "Health Engine: ge360-bridge health-check"
 echo "Diagnostica: ge360-bridge diagnose-resource rilievi --api-path /healthz --pdf-path /api/report.pdf"
+echo "Connection Doctor: ge360-bridge doctor rilievi --device telefono-milan --api-path /healthz"
 echo "I vecchi comandi service-* restano alias compatibili."

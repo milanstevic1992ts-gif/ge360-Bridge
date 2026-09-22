@@ -1,32 +1,47 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.8 — Fase 6 completata: Diagnostica avanzata**. La Fase 7 è la prossima e non è ancora stata avviata.
+Versione corrente: **v0.9 — Fase 7: Connection Doctor**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
-## Diagnostica Fase 6
+## Connection Doctor
 
-Per ogni Resource puoi verificare separatamente:
+Il Doctor usa Health Engine, Diagnostica, WireGuard e ACL per classificare i problemi senza inventare cause.
+
+Categorie:
 
 ```text
-Ping Bridge
-Ping backend
-TCP target
-API
-PDF
-DNS
-Traceroute
+VPN_DOWN
+BRIDGE_DOWN
+DEVICE_NOT_AUTHORIZED
+SERVICE_NOT_ALLOWED
+BACKEND_DOWN
+HTTP_ERROR
+PDF_URL_INVALID
+TIMEOUT
+PORT_CONFLICT
+ENDPOINT_INVALID
+OK
 ```
 
-Esempio Rilievi:
+## Rilievi
 
 ```bash
-ge360-bridge diagnose-resource rilievi \
+ge360-bridge doctor rilievi \
+  --device telefono-milan \
   --api-path /healthz \
   --pdf-path /api/report/123.pdf
 ```
 
-Il test PDF verifica anche la firma reale `%PDF-`, quindi distingue un PDF valido da una pagina HTML restituita per errore.
+Il risultato include categoria primaria, finding secondari ed evidenze.
+
+## Dashboard
+
+```text
+http://127.0.0.1:8789
+```
+
+Apri una Resource e usa Diagnostica. Inserendo anche il device, il Doctor può distinguere problemi VPN/ACL da problemi backend.
 
 ## Aggiornamento
 
@@ -36,24 +51,4 @@ git pull
 sudo ./install.sh
 ```
 
-La Fase 6 richiede anche `iputils-ping` e `traceroute`, installati automaticamente.
-
-## Dashboard
-
-Apri:
-
-```text
-http://127.0.0.1:8789
-```
-
-Poi entra nella Resource, per esempio `rilievi`, e usa **Diagnostica avanzata · Fase 6**.
-
-## Guardrail
-
-API e PDF possono puntare soltanto alla Resource selezionata. Il Bridge non usa la diagnostica per interrogare host arbitrari.
-
-## Importante
-
-La Fase 6 mostra i test separati ma non decide ancora automaticamente “qual è il problema”. Le categorie e la diagnosi automatica appartengono alla **Fase 7 — Connection Doctor**.
-
-Vedi `docs/DIAGNOSTICS.md`.
+Vedi `docs/CONNECTION_DOCTOR.md`.

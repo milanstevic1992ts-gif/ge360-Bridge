@@ -50,6 +50,7 @@ from .core import (
 from .pairing import create_pairing_payload, list_enrollments
 from .health import check_resource, check_resources, health_summary
 from .diagnostics import diagnose_resource
+from .doctor import connection_doctor
 
 DEFAULT_WG_PORT = 51820
 DEFAULT_SERVER_VPN_IP = "10.88.0.1"
@@ -396,6 +397,28 @@ def cmd_diagnose_resource(args: argparse.Namespace) -> None:
     print(json.dumps(report, indent=2))
 
 
+def cmd_connection_doctor(args: argparse.Namespace) -> None:
+    resource = next((r for r in list_resources() if r.get("name") == args.resource), None)
+    if not resource:
+        raise BridgeError(f"Resource non trovata: {args.resource}")
+    diagnostics = diagnose_resource(
+        resource,
+        api_path=args.api_path,
+        pdf_path=args.pdf_path,
+        include_traceroute=not args.no_traceroute,
+    )
+    health = check_resource(resource, use_cache=False)
+    result = connection_doctor(
+        resource,
+        diagnostics,
+        health,
+        device_identifier=args.device,
+    )
+    result["diagnostics"] = diagnostics
+    result["health"] = health
+    print(json.dumps(result, indent=2))
+
+
 def cmd_list(_: argparse.Namespace) -> None:
     safe_devices = [{k: v for k, v in d.items() if k not in ("preshared_key", "token")} for d in list_devices()]
     print(json.dumps({"devices": safe_devices, "groups": list_groups(), "resources": list_resources(), "services": list_services()}, indent=2))
@@ -539,6 +562,14 @@ def parser() -> argparse.ArgumentParser:
     x.add_argument("--pdf-path", help="Percorso PDF locale della Resource, es. /api/report/123.pdf")
     x.add_argument("--no-traceroute", action="store_true")
     x.set_defaults(func=cmd_diagnose_resource)
+
+    x = sub.add_parser("doctor", help="Connection Doctor Fase 7")
+    x.add_argument("resource")
+    x.add_argument("--device", help="Nome o device_id opzionale per verificare VPN e ACL")
+    x.add_argument("--api-path")
+    x.add_argument("--pdf-path")
+    x.add_argument("--no-traceroute", action="store_true")
+    x.set_defaults(func=cmd_connection_doctor)
 
     l = sub.add_parser("list"); l.set_defaults(func=cmd_list)
     st = sub.add_parser("status"); st.set_defaults(func=cmd_status)

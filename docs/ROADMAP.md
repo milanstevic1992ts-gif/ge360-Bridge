@@ -123,9 +123,33 @@ Fuori scope Fase 6:
 
 Criterio di chiusura: test e CI verdi per TCP/API/PDF/DNS/ping/traceroute e nessun accesso API/PDF fuori dal target Resource.
 
-## Fase 7 — Connection Doctor — PROSSIMA, NON AVVIATA
+## Fase 7 — Connection Doctor — CORRENTE
 
-Classificazione automatica dei problemi: VPN_DOWN, BRIDGE_DOWN, DEVICE_NOT_AUTHORIZED, SERVICE_NOT_ALLOWED, BACKEND_DOWN, HTTP_ERROR, PDF_URL_INVALID, TIMEOUT, PORT_CONFLICT, ENDPOINT_INVALID.
+Obiettivo: classificare automaticamente e in modo deterministico i problemi usando soltanto segnali già verificati dalle fasi precedenti.
+
+Scope obbligatorio:
+- categorie VPN_DOWN, BRIDGE_DOWN, DEVICE_NOT_AUTHORIZED, SERVICE_NOT_ALLOWED, BACKEND_DOWN, HTTP_ERROR, PDF_URL_INVALID, TIMEOUT, PORT_CONFLICT, ENDPOINT_INVALID;
+- stato OK quando non emerge un problema;
+- verifica runtime wg0 e ge360-bridge.service;
+- verifica listener bridge port;
+- validazione PUBLIC_ENDPOINT;
+- device opzionale con stato, ACL e handshake;
+- utilizzo Health Engine Fase 5;
+- utilizzo Diagnostica Fase 6;
+- categoria primaria con precedenza deterministica;
+- finding secondari con evidenze;
+- CLI doctor;
+- integrazione dashboard nel flusso diagnostica;
+- nessuna persistenza.
+
+Fuori scope Fase 7:
+- audit log;
+- storico;
+- metriche/grafici;
+- self-healing;
+- NAT discovery/traversal.
+
+Criterio di chiusura: test dedicato per ogni categoria e CI verde.
 
 ## Fase 8 — Audit log
 

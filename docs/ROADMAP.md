@@ -323,9 +323,40 @@ Chiusura verificata:
 - Resource Registry esistente riusato senza modifica dello schema;
 - nessun Agent Linux, self-healing, NAT discovery, relay o multi-server introdotto.
 
-## Fase 14 — Agent Linux — PROSSIMA, NON AVVIATA
+## Fase 14 — Agent Linux — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
 
-Agent leggero per server aggiuntivi con stato, servizi, health, IP e metriche.
+Obiettivo: fornire un Agent Linux leggero e read-only installabile su host aggiuntivi, senza anticipare il control plane multi-server.
+
+Scope:
+- comando separato ge360-agent;
+- installer dedicato install-agent.sh;
+- servizio systemd ge360-agent.service;
+- bind predefinito 127.0.0.1:8791;
+- token Bearer generato localmente e salvato con permessi 0600;
+- endpoint pubblici minimi /healthz e /.well-known/ge360-agent;
+- API protette /v1/status, /v1/resources, /v1/health e /v1/metrics;
+- stato host con hostname, OS, kernel, architettura e uptime;
+- indirizzi IP locali;
+- Resource locali tramite il discovery controllato della Fase 13;
+- Health Engine riusato per le Resource rilevate;
+- metriche correnti load, memoria, disco e rete;
+- cache breve soltanto in memoria;
+- nessuna persistenza di payload o metriche Agent;
+- test dedicati a metriche, Resource, token e autenticazione API.
+
+Fuori scope Fase 14:
+- restart automatico dei backend;
+- self-healing;
+- registrazione centralizzata dei server;
+- routing di Resource remote;
+- scansione LAN;
+- modifica remota del Resource Registry;
+- backup/update engine;
+- NAT discovery/traversal;
+- relay;
+- control plane multi-server.
+
+Criterio di chiusura: CI Python verde, installer sintatticamente valido, API read-only autenticata verificata, rilettura scope e nessuna funzione Fase 15 anticipata.
 
 ## Fase 15 — Self-healing
 

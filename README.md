@@ -1,33 +1,52 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.15 — Fase 13 completata: Auto discovery backend**. La Fase 14 — Agent Linux è la prossima e non è stata avviata.
+Versione corrente: **v0.16 — Fase 14: Linux Agent in verifica CI**.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
+## Linux Agent
+
+La Fase 14 aggiunge un Agent Linux leggero e read-only per host aggiuntivi.
+
+Dati disponibili:
+
+- stato host;
+- Resource GE360 locali;
+- health;
+- indirizzi IP;
+- metriche CPU/load, memoria, disco e rete.
+
+Installazione separata su un host Linux:
+
+```bash
+sudo ./install-agent.sh
+```
+
+API locale predefinita:
+
+```text
+http://127.0.0.1:8791
+```
+
+Snapshot locale:
+
+```bash
+sudo ge360-agent snapshot
+```
+
+Gli endpoint `/v1/*` richiedono Bearer token. Il bind predefinito resta loopback.
+
+La Fase 14 **non** implementa self-healing, routing di Resource remote, NAT traversal o control plane multi-server.
+
 ## Backend auto discovery
 
-I backend GE360 possono dichiararsi tramite:
+I backend GE360 dichiarano la propria identità tramite:
 
 ```text
 GET /.well-known/ge360
 ```
 
-Il Bridge rileva soltanto backend locali loopback, valida rigidamente il manifest e li propone senza importarli automaticamente.
-
-CLI:
-
-```bash
-ge360-bridge resource-discover
-sudo ge360-bridge resource-import 9888
-```
-
-Dashboard autenticata:
-
-```text
-http://127.0.0.1:8789/discovery
-```
-
-Il Resource Registry esistente resta autoritativo e `services.json` continua a essere il mirror di compatibilità.
+Il discovery continua a essere confinato al loopback e non effettua scansioni LAN.
 
 ## Android automatic connection
 
@@ -41,6 +60,11 @@ Il tunnel resta limitato a:
 
 ## Limite di rete
 
-L'auto-discovery non risolve CGNAT. Se non esiste IPv4 pubblico raggiungibile o IPv6 globale raggiungibile, la connessione diretta da Internet non può essere garantita senza un futuro nodo pubblico/relay/rendezvous.
+Linux Agent e auto-discovery non risolvono CGNAT. La connessione diretta da Internet continua a richiedere un endpoint pubblico raggiungibile; NAT discovery/traversal e relay restano nelle fasi future.
 
-Vedi `docs/BACKEND_DISCOVERY.md`.
+Vedi:
+
+```text
+docs/LINUX_AGENT.md
+docs/BACKEND_DISCOVERY.md
+```

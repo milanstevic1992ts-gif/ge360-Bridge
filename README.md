@@ -6,7 +6,24 @@ Ponte privato e riutilizzabile per collegare i frontend GE360 ai backend Linux a
 
 Un solo Bridge sul server gestisce più app e più backend. La rete privata usa WireGuard `wg0` su `10.88.0.0/24`, UDP `51820`. La modalità predefinita è **Server Only**: il client può raggiungere `10.88.0.1`, non la LAN e non Internet attraverso il server.
 
-## Installazione Debian 13
+## Dashboard amministratore
+
+La v0.2 aggiunge una dashboard separata dal proxy:
+
+- server locale: `http://127.0.0.1:8789`
+- tramite WireGuard: `http://10.88.0.1:8789`
+- health: `http://127.0.0.1:8789/healthz`
+- stato JSON autenticato: `/api/status`
+
+Il token amministratore è generato una sola volta e preservato negli aggiornamenti:
+
+```bash
+sudo cat /etc/ge360-bridge/dashboard.token
+```
+
+La dashboard mostra dispositivi online/offline, ultimo handshake WireGuard, endpoint del peer, traffico RX/TX, backend raggiungibili, porte Bridge e ACL. Permette anche di creare dispositivi con QR, revocarli, registrare/rimuovere backend e modificare i permessi.
+
+## Installazione / aggiornamento Debian 13
 
 ```bash
 git clone https://github.com/milanstevic1992ts-gif/ge360-Bridge.git
@@ -14,15 +31,25 @@ cd ge360-Bridge
 sudo ./install.sh
 ```
 
-Poi imposta `PUBLIC_ENDPOINT` in `/etc/ge360-bridge/bridge.env` se l'installer non riesce a determinarlo.
+Se la repo è già installata:
+
+```bash
+cd ge360-Bridge
+git pull
+sudo ./install.sh
+```
+
+L'installer preserva chiavi, endpoint, peer, dispositivi, servizi e token dashboard esistenti.
 
 ## Pairing di un telefono
+
+Da terminale:
 
 ```bash
 sudo ge360-bridge device-add telefono-milan
 ```
 
-Viene mostrato un QR `ge360-bridge-pairing/v1` con configurazione WireGuard, IP del Bridge e token dispositivo.
+Oppure dalla dashboard con **Aggiungi dispositivo**. Il pairing temporaneo della dashboard resta recuperabile per 30 minuti.
 
 ## Collegare GE360 Rilievi
 
@@ -42,27 +69,18 @@ sudo ge360-bridge service-add rilievi \
   --allow telefono-milan
 ```
 
-Il frontend autorizzato usa:
+Il frontend autorizzato usa `http://10.88.0.1:9888`.
 
-```text
-http://10.88.0.1:9888
-```
-
-Ogni frontend può inoltre verificare il Bridge senza toccare il backend:
-
-```text
-http://10.88.0.1:8788/v1/status
-```
-
-Questo endpoint restituisce lo stato del tunnel e l'elenco dei servizi consentiti a quel dispositivo; è pensato anche per una pagina **Connessione Bridge** dentro le app GE360.
+Ogni frontend può verificare il Bridge senza toccare il backend su `http://10.88.0.1:8788/v1/status`.
 
 ## Diagnostica
 
 ```bash
 ge360-bridge status
 sudo wg show
-systemctl status wg-quick@wg0 ge360-bridge ge360-bridge-firewall
-journalctl -u ge360-bridge -n 100 --no-pager
+systemctl status wg-quick@wg0 ge360-bridge ge360-bridge-dashboard ge360-bridge-firewall
+curl http://127.0.0.1:8789/healthz
+journalctl -u ge360-bridge -u ge360-bridge-dashboard -n 100 --no-pager
 ```
 
 ## Gestione permessi e revoca
@@ -75,16 +93,19 @@ sudo ge360-bridge device-revoke telefono-milan
 
 ## Sicurezza
 
-- chiave WireGuard e PSK per ogni device;
-- token applicativo dedicato, mai master key;
+- chiave WireGuard e PSK distinti per ogni device;
+- token applicativo dedicato per dispositivo;
+- token amministratore dashboard separato;
+- dashboard in ascolto solo su localhost e IP WireGuard;
 - backend non pubblicati sulla WAN;
 - ACL per dispositivo su ogni servizio;
 - traffico da `wg0` non inoltrato alla LAN;
+- pairing dashboard temporanei con permessi `0600` e TTL 30 minuti;
 - file sensibili `0600`;
-- la porta WAN UDP `51820` non viene aperta forzando o sostituendo il firewall generale del server: se usi UFW/nftables con policy restrittive, autorizzala esplicitamente sul firewall host/router.
+- la porta WAN UDP `51820` non viene aperta forzando o sostituendo il firewall generale del server.
 
 ## Nota su CGNAT
 
 Senza IPv4 pubblica/port-forward oppure IPv6 globale raggiungibile, una connessione **diretta** da Internet al server non può funzionare. In quel caso il Bridge segnala la condizione invece di introdurre di nascosto relay o cloud esterni.
 
-Vedi `docs/ARCHITECTURE.md`, `docs/PAIRING_PROTOCOL.md` e `docs/SECURITY.md`.
+Vedi `docs/ARCHITECTURE.md`, `docs/PAIRING_PROTOCOL.md`, `docs/SECURITY.md` e `docs/DASHBOARD.md`.

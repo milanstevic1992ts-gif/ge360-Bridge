@@ -2,8 +2,9 @@
 set -euo pipefail
 STATE=/etc/ge360-bridge/services.json
 HEALTH_PORT=8788
+DASHBOARD_PORT=8789
 
-ports="$HEALTH_PORT"
+ports="$HEALTH_PORT,$DASHBOARD_PORT"
 if [[ -r "$STATE" ]]; then
   extra="$(python3 - "$STATE" <<'PY'
 import json,sys

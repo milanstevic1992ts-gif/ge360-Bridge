@@ -17,6 +17,8 @@ BRIDGE_ENV = STATE_DIR / "bridge.env"
 WG_CONF = Path(os.environ.get("GE360_WG_CONF", "/etc/wireguard/wg0.conf"))
 
 SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+RESERVED_BRIDGE_PORTS = {8788, 8789}
+LOOPBACK_TARGETS = {"127.0.0.1", "::1", "localhost"}
 
 
 class BridgeError(RuntimeError):
@@ -70,6 +72,13 @@ def validate_port(port: int) -> int:
     return int(port)
 
 
+def validate_target_host(host: str) -> str:
+    candidate = host.strip().lower()
+    if candidate not in LOOPBACK_TARGETS:
+        raise BridgeError("Target non consentito: GE360 Bridge accetta solo backend locali su 127.0.0.1, ::1 o localhost.")
+    return candidate
+
+
 def list_services() -> list[dict[str, Any]]:
     return _load(SERVICES_FILE, [])
 
@@ -90,10 +99,10 @@ def next_device_ip(cidr: str = "10.88.0.0/24", server_ip: str = "10.88.0.1") -> 
     network = ipaddress.ip_network(cidr, strict=False)
     used = {d.get("vpn_ip") for d in list_devices()}
     for ip in network.hosts():
-        s = str(ip)
-        if s == server_ip or s in used:
+        value = str(ip)
+        if value == server_ip or value in used:
             continue
-        return s
+        return value
     raise BridgeError("Nessun IP VPN libero.")
 
 
@@ -119,6 +128,9 @@ def register_service(name: str, listen_port: int, target_host: str, target_port:
     validate_name(name)
     listen_port = validate_port(listen_port)
     target_port = validate_port(target_port)
+    target_host = validate_target_host(target_host)
+    if listen_port in RESERVED_BRIDGE_PORTS:
+        raise BridgeError(f"Porta Bridge riservata al sistema: {listen_port}")
     items = list_services()
     if any(s["name"] == name for s in items):
         raise BridgeError(f"Servizio già presente: {name}")

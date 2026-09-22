@@ -18,10 +18,10 @@ say(){ printf '\n==> %s\n' "$*"; }
 
 say "Installazione dipendenze"
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y wireguard-tools nftables qrencode python3 miniupnpc iproute2
+DEBIAN_FRONTEND=noninteractive apt-get install -y wireguard-tools nftables qrencode python3 miniupnpc iproute2 curl
 
 say "Installazione GE360 Bridge"
-install -d -m 700 "$STATE_DIR" "$WG_DIR"
+install -d -m 700 "$STATE_DIR" "$STATE_DIR/pairings" "$WG_DIR"
 install -d -m 755 "$PY_DST"
 rm -rf "$PY_DST/ge360_bridge"
 cp -a "$ROOT_DIR/ge360_bridge" "$PY_DST/"
@@ -33,6 +33,14 @@ if [[ ! -s "$STATE_DIR/server.key" ]]; then
   wg pubkey < "$STATE_DIR/server.key" > "$STATE_DIR/server.pub"
 fi
 SERVER_PRIV="$(cat "$STATE_DIR/server.key")"
+
+if [[ ! -s "$STATE_DIR/dashboard.token" ]]; then
+  umask 077
+  python3 - <<'PY' > "$STATE_DIR/dashboard.token"
+import secrets
+print(secrets.token_urlsafe(32))
+PY
+fi
 
 if [[ ! -e "$STATE_DIR/bridge.env" ]]; then
   cat > "$STATE_DIR/bridge.env" <<ENV
@@ -48,7 +56,8 @@ fi
 
 [[ -e "$STATE_DIR/services.json" ]] || printf '[]\n' > "$STATE_DIR/services.json"
 [[ -e "$STATE_DIR/devices.json" ]] || printf '[]\n' > "$STATE_DIR/devices.json"
-chmod 600 "$STATE_DIR"/*.json "$STATE_DIR"/bridge.env "$STATE_DIR"/server.key "$STATE_DIR"/server.pub
+chmod 600 "$STATE_DIR"/*.json "$STATE_DIR"/bridge.env "$STATE_DIR"/server.key "$STATE_DIR"/server.pub "$STATE_DIR"/dashboard.token
+chmod 700 "$STATE_DIR/pairings"
 
 if [[ ! -e "$WG_DIR/$WG_IF.conf" ]]; then
   cat > "$WG_DIR/$WG_IF.conf" <<WG
@@ -64,6 +73,7 @@ fi
 chmod 600 "$WG_DIR/$WG_IF.conf"
 
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge.service" /etc/systemd/system/ge360-bridge.service
+install -m 644 "$ROOT_DIR/systemd/ge360-bridge-dashboard.service" /etc/systemd/system/ge360-bridge-dashboard.service
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-firewall.service" /etc/systemd/system/ge360-bridge-firewall.service
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-boot-verify.service" /etc/systemd/system/ge360-bridge-boot-verify.service
 install -m 755 "$ROOT_DIR/scripts/apply-firewall.sh" /usr/local/sbin/ge360-bridge-firewall
@@ -73,6 +83,7 @@ systemctl daemon-reload
 systemctl enable --now "wg-quick@$WG_IF"
 systemctl enable --now ge360-bridge-firewall.service
 systemctl enable --now ge360-bridge.service
+systemctl enable --now ge360-bridge-dashboard.service
 systemctl enable ge360-bridge-boot-verify.service
 
 say "Rilevamento endpoint"
@@ -108,6 +119,9 @@ else
 fi
 
 say "Installazione completata"
+echo "Dashboard locale: http://127.0.0.1:8789"
+echo "Dashboard via Bridge: http://10.88.0.1:8789"
+echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
 echo "1) sudo ge360-bridge device-add telefono"
 echo "2) sudo ge360-bridge service-add rilievi --port 9888 --target-port 9888 --allow telefono"
 echo "3) ge360-bridge status"

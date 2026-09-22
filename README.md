@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.8 — Fase 6: Diagnostica avanzata**.
+Versione corrente: **v0.8 — Fase 6 completata: Diagnostica avanzata**. La Fase 7 è la prossima e non è ancora stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

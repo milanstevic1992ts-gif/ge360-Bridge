@@ -93,7 +93,7 @@ Fuori scope Fase 5:
 
 Criterio di chiusura: test e CI verdi per tutti gli stati previsti e nessuna regressione sul proxy Resource.
 
-## Fase 6 — Diagnostica avanzata — CORRENTE
+## Fase 6 — Diagnostica avanzata — COMPLETATA
 
 Obiettivo: fornire test manuali, separati e non persistenti per localizzare un problema di comunicazione senza anticipare il Connection Doctor.
 
@@ -123,7 +123,7 @@ Fuori scope Fase 6:
 
 Criterio di chiusura: test e CI verdi per TCP/API/PDF/DNS/ping/traceroute e nessun accesso API/PDF fuori dal target Resource.
 
-## Fase 7 — Connection Doctor
+## Fase 7 — Connection Doctor — PROSSIMA, NON AVVIATA
 
 Classificazione automatica dei problemi: VPN_DOWN, BRIDGE_DOWN, DEVICE_NOT_AUTHORIZED, SERVICE_NOT_ALLOWED, BACKEND_DOWN, HTTP_ERROR, PDF_URL_INVALID, TIMEOUT, PORT_CONFLICT, ENDPOINT_INVALID.
 

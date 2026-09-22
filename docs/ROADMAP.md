@@ -226,7 +226,7 @@ Fuori scope Fase 10:
 
 Criterio di chiusura: test ACL/launcher/segreti e CI verdi.
 
-## Fase 11 — Frontend SDK Android — CORRENTE
+## Fase 11 — Frontend SDK Android — COMPLETATA
 
 Obiettivo: fornire un modulo Android riutilizzabile per integrare GE360 Bridge senza duplicare protocolli nelle singole APK.
 
@@ -255,7 +255,7 @@ Fuori scope Fase 11:
 
 Criterio di chiusura: CI Python verde + CI Android verde e test parser/configurazione.
 
-## Fase 12 — Connessione automatica Android
+## Fase 12 — Connessione automatica Android — PROSSIMA, NON AVVIATA
 
 VPNService/WireGuard, reconnect e stati connessione integrati nelle APK.
 

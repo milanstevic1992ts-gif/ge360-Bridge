@@ -1,4 +1,4 @@
-# Frontend SDK Android — Fase 11
+# Frontend SDK Android — Fase 11 — COMPLETATA
 
 La Fase 11 introduce il modulo riutilizzabile `ge360-bridge-android`.
 
@@ -79,6 +79,19 @@ Il certificato enrollment viene accettato soltanto se la sua impronta SHA-256 co
 
 Workflow dedicata Android con JDK 17, SDK 35 e Gradle.
 
+## Chiusura Fase 11
+
+Criteri verificati:
+
+- modulo Android compilato;
+- test Kotlin parser/configurazione verdi;
+- CI Python verde;
+- CI Android verde;
+- pairing v2 e certificate pinning presenti;
+- private key non inviata dal client;
+- segreti redatti nei modelli sensibili;
+- nessuna implementazione automatica di VpnService/reconnect introdotta.
+
 ## Fuori scope
 
-VpnService Android, reconnect automatico e persistenza sicura della configurazione appartengono alla Fase 12.
+VpnService Android, reconnect automatico e persistenza sicura della configurazione appartengono alla Fase 12, non avviata.

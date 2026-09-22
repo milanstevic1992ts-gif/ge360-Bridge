@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.13 — Fase 11: Frontend SDK Android**.
+Versione corrente: **v0.13 — Fase 11 completata: Frontend SDK Android**. La Fase 12 è la prossima e non è ancora stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 
@@ -24,7 +24,7 @@ Include:
 - Resource discovery;
 - diagnostica SDK.
 
-La connessione Android automatica tramite VpnService appartiene alla Fase 12.
+La connessione Android automatica tramite VpnService appartiene alla Fase 12, che non è stata avviata.
 
 ## CI
 

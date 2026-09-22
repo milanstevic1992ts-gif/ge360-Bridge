@@ -1,4 +1,4 @@
-# GE360 Bridge Android SDK
+# GE360 Bridge Android SDK — Fase 11 completata
 
 Modulo:
 
@@ -61,7 +61,7 @@ interface WireGuardKeyProvider
 interface VpnController
 ```
 
-La Fase 12 implementa questi contratti per connessione automatica, reconnect e gestione VPN Android.
+La Fase 12 implementerà questi contratti per connessione automatica, reconnect e gestione VPN Android. La Fase 12 non è stata avviata.
 
 ## Cleartext privato
 

@@ -323,7 +323,7 @@ Chiusura verificata:
 - Resource Registry esistente riusato senza modifica dello schema;
 - nessun Agent Linux, self-healing, NAT discovery, relay o multi-server introdotto.
 
-## Fase 14 — Agent Linux — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
+## Fase 14 — Agent Linux — COMPLETATA
 
 Obiettivo: fornire un Agent Linux leggero e read-only installabile su host aggiuntivi, senza anticipare il control plane multi-server.
 
@@ -358,7 +358,16 @@ Fuori scope Fase 14:
 
 Criterio di chiusura: CI Python verde, installer sintatticamente valido, API read-only autenticata verificata, rilettura scope e nessuna funzione Fase 15 anticipata.
 
-## Fase 15 — Self-healing
+Chiusura verificata:
+- commit funzionale cb96a0ca0c006391b780c58e614f48dfc6480d56;
+- CI Python completata con successo, inclusi compileall, unittest e bash -n;
+- test Agent verdi per metriche, Resource, token e autenticazione API;
+- install-agent.sh e ge360-agent verificati sintatticamente;
+- workflow Android non modificato e ultimo run su main verde;
+- Agent read-only: nessun restart backend o modifica Resource remota;
+- nessun self-healing, NAT discovery, relay o control plane multi-server introdotto.
+
+## Fase 15 — Self-healing — PROSSIMA, NON AVVIATA
 
 Restart controllato systemd con limiti anti-loop.
 

@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.16 — Fase 14: Linux Agent in verifica CI**.
+Versione corrente: **v0.16 — Fase 14 completata: Linux Agent**. La Fase 15 — Self-healing è la prossima e non è stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

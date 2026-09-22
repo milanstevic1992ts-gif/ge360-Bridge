@@ -15,15 +15,25 @@ from .core import (
     WG_CONF,
     BridgeError,
     Device,
+    device_is_active,
+    find_device,
     grant_device,
     list_devices,
     list_services,
+    new_device_id,
     next_device_ip,
     random_token,
     register_service,
     remove_service,
+    rename_device,
     revoke_device,
     save_devices,
+    set_device_enabled,
+    update_device_metadata,
+    utc_now_iso,
+    validate_device_type,
+    validate_expiry,
+    normalize_tags,
     wg_keypair,
 )
 
@@ -81,12 +91,12 @@ def render_wg_config() -> None:
         "SaveConfig = false",
     ]
     for d in list_devices():
-        if not d.get("enabled", True):
+        if not device_is_active(d):
             continue
         lines.extend([
             "",
             "[Peer]",
-            f"# GE360 device: {d['name']}",
+            f"# GE360 device: {d['name']} ({d['device_id']})",
             f"PublicKey = {d['public_key']}",
             f"PresharedKey = {d['preshared_key']}",
             f"AllowedIPs = {d['vpn_ip']}/32",
@@ -153,21 +163,42 @@ def reload_runtime() -> None:
     sh(["/usr/local/sbin/ge360-bridge-firewall"], check=False)
 
 
+def parse_tags_csv(value: str) -> list[str]:
+    return normalize_tags([x for x in (value or "").split(",") if x.strip()])
+
+
 def cmd_device_add(args: argparse.Namespace) -> None:
     must_root()
     if any(d["name"] == args.name for d in list_devices()):
         raise BridgeError(f"Dispositivo già presente: {args.name}")
+    device_type = validate_device_type(args.type)
+    expires_at = validate_expiry(args.expires)
+    tags = parse_tags_csv(args.tags)
     private, public, psk = wg_keypair()
     vpn_ip = next_device_ip()
     token = random_token()
     items = list_devices()
-    device = Device(args.name, vpn_ip, public, psk, token, True)
+    device = Device(
+        device_id=new_device_id(),
+        name=args.name,
+        device_type=device_type,
+        owner=(args.owner or "").strip()[:120],
+        vpn_ip=vpn_ip,
+        public_key=public,
+        preshared_key=psk,
+        token=token,
+        created_at=utc_now_iso(),
+        expires_at=expires_at,
+        notes=(args.notes or "").strip()[:1000],
+        tags=tags,
+        enabled=True,
+    )
     items.append(device.__dict__)
     save_devices(items)
     render_wg_config()
     conf = make_client_conf(private, psk, vpn_ip)
     payload = bundle_for(args.name, conf, token)
-    print(f"Dispositivo: {args.name}\nVPN IP: {vpn_ip}\n")
+    print(f"Dispositivo: {args.name}\nID: {device.device_id}\nVPN IP: {vpn_ip}\n")
     if args.raw:
         print(payload)
     else:
@@ -175,14 +206,84 @@ def cmd_device_add(args: argparse.Namespace) -> None:
         print("\nIl QR contiene una chiave privata: scansionalo in un luogo sicuro e non pubblicarlo.")
 
 
-def cmd_device_revoke(args: argparse.Namespace) -> None:
+def cmd_device_disable(args: argparse.Namespace) -> None:
     must_root()
-    device = revoke_device(args.name)
+    device = set_device_enabled(args.device, False)
     if not device:
         raise BridgeError("Dispositivo non trovato.")
     render_wg_config()
     reload_runtime()
-    print(f"Revocato: {args.name}")
+    print(f"Disabilitato: {device['name']} ({device['device_id']})")
+
+
+def cmd_device_enable(args: argparse.Namespace) -> None:
+    must_root()
+    device = set_device_enabled(args.device, True)
+    if not device:
+        raise BridgeError("Dispositivo non trovato.")
+    render_wg_config()
+    reload_runtime()
+    print(f"Abilitato: {device['name']} ({device['device_id']})")
+
+
+def cmd_device_revoke(args: argparse.Namespace) -> None:
+    must_root()
+    device = revoke_device(args.device)
+    if not device:
+        raise BridgeError("Dispositivo non trovato.")
+    render_wg_config()
+    reload_runtime()
+    print(f"Revocato/disabilitato: {device['name']} ({device['device_id']})")
+
+
+def cmd_device_rename(args: argparse.Namespace) -> None:
+    must_root()
+    device = rename_device(args.device, args.new_name)
+    render_wg_config()
+    reload_runtime()
+    print(f"Rinominato: {device['name']} ({device['device_id']})")
+
+
+def cmd_device_update(args: argparse.Namespace) -> None:
+    must_root()
+    current = find_device(args.device)
+    if not current:
+        raise BridgeError("Dispositivo non trovato.")
+    expires = current.get("expires_at")
+    if args.clear_expiry:
+        expires = None
+    elif args.expires is not None:
+        expires = args.expires
+    tags = current.get("tags", [])
+    if args.tags is not None:
+        tags = parse_tags_csv(args.tags)
+    device = update_device_metadata(
+        args.device,
+        device_type=args.type if args.type is not None else current.get("device_type", "unknown"),
+        owner=args.owner if args.owner is not None else current.get("owner", ""),
+        expires_at=expires,
+        notes=args.notes if args.notes is not None else current.get("notes", ""),
+        tags=tags,
+    )
+    render_wg_config()
+    reload_runtime()
+    safe = {k: v for k, v in device.items() if k not in ("preshared_key", "token", "public_key")}
+    print(json.dumps(safe, indent=2))
+
+
+def cmd_device_show(args: argparse.Namespace) -> None:
+    device = find_device(args.device)
+    if not device:
+        raise BridgeError("Dispositivo non trovato.")
+    safe = {k: v for k, v in device.items() if k not in ("preshared_key", "token")}
+    print(json.dumps(safe, indent=2))
+
+
+def cmd_device_sync(_: argparse.Namespace) -> None:
+    must_root()
+    render_wg_config()
+    reload_runtime()
+    print("Device Registry sincronizzato con WireGuard.")
 
 
 def cmd_service_add(args: argparse.Namespace) -> None:
@@ -250,12 +351,47 @@ def parser() -> argparse.ArgumentParser:
 
     d = sub.add_parser("device-add")
     d.add_argument("name")
+    d.add_argument("--type", default="unknown", choices=["android", "linux", "windows", "server", "tablet", "unknown"])
+    d.add_argument("--owner", default="")
+    d.add_argument("--expires", default=None, help="Scadenza YYYY-MM-DD")
+    d.add_argument("--notes", default="")
+    d.add_argument("--tags", default="", help="Tag separati da virgola")
     d.add_argument("--raw", action="store_true", help="Stampa JSON invece del QR")
     d.set_defaults(func=cmd_device_add)
 
+    d = sub.add_parser("device-show")
+    d.add_argument("device", help="Nome o device_id")
+    d.set_defaults(func=cmd_device_show)
+
+    d = sub.add_parser("device-rename")
+    d.add_argument("device", help="Nome o device_id")
+    d.add_argument("new_name")
+    d.set_defaults(func=cmd_device_rename)
+
+    d = sub.add_parser("device-update")
+    d.add_argument("device", help="Nome o device_id")
+    d.add_argument("--type", choices=["android", "linux", "windows", "server", "tablet", "unknown"])
+    d.add_argument("--owner")
+    d.add_argument("--expires", help="Scadenza YYYY-MM-DD")
+    d.add_argument("--clear-expiry", action="store_true")
+    d.add_argument("--notes")
+    d.add_argument("--tags", help="Tag separati da virgola")
+    d.set_defaults(func=cmd_device_update)
+
+    d = sub.add_parser("device-enable")
+    d.add_argument("device", help="Nome o device_id")
+    d.set_defaults(func=cmd_device_enable)
+
+    d = sub.add_parser("device-disable")
+    d.add_argument("device", help="Nome o device_id")
+    d.set_defaults(func=cmd_device_disable)
+
     d = sub.add_parser("device-revoke")
-    d.add_argument("name")
+    d.add_argument("device", help="Alias compatibile di device-disable")
     d.set_defaults(func=cmd_device_revoke)
+
+    d = sub.add_parser("device-sync")
+    d.set_defaults(func=cmd_device_sync)
 
     s = sub.add_parser("service-add")
     s.add_argument("name")

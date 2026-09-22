@@ -1,0 +1,10 @@
+[Unit]
+Description=GE360 Bridge daily device expiry check
+
+[Timer]
+OnCalendar=*-*-* 00:05:00
+Persistent=true
+Unit=ge360-bridge-expiry.service
+
+[Install]
+WantedBy=timers.target

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
+if [[ \${EUID:-$(id -u)} -ne 0 ]]; then
   echo "Esegui con sudo: sudo ./install.sh" >&2
   exit 1
 fi
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR=/etc/ge360-bridge
 WG_DIR=/etc/wireguard
 WG_IF=wg0
@@ -56,6 +56,14 @@ fi
 
 [[ -e "$STATE_DIR/services.json" ]] || printf '[]\n' > "$STATE_DIR/services.json"
 [[ -e "$STATE_DIR/devices.json" ]] || printf '[]\n' > "$STATE_DIR/devices.json"
+
+say "Migrazione Device Registry Fase 1"
+PYTHONPATH="$PY_DST" python3 - <<'PY'
+from ge360_bridge.core import upgrade_device_registry
+changed = upgrade_device_registry()
+print(f"Device migrati/aggiornati: {changed}")
+PY
+
 chmod 600 "$STATE_DIR"/*.json "$STATE_DIR"/bridge.env "$STATE_DIR"/server.key "$STATE_DIR"/server.pub "$STATE_DIR"/dashboard.token
 chmod 700 "$STATE_DIR/pairings"
 
@@ -76,6 +84,8 @@ install -m 644 "$ROOT_DIR/systemd/ge360-bridge.service" /etc/systemd/system/ge36
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-dashboard.service" /etc/systemd/system/ge360-bridge-dashboard.service
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-firewall.service" /etc/systemd/system/ge360-bridge-firewall.service
 install -m 644 "$ROOT_DIR/systemd/ge360-bridge-boot-verify.service" /etc/systemd/system/ge360-bridge-boot-verify.service
+install -m 644 "$ROOT_DIR/systemd/ge360-bridge-expiry.service" /etc/systemd/system/ge360-bridge-expiry.service
+install -m 644 "$ROOT_DIR/systemd/ge360-bridge-expiry.timer" /etc/systemd/system/ge360-bridge-expiry.timer
 install -m 755 "$ROOT_DIR/scripts/apply-firewall.sh" /usr/local/sbin/ge360-bridge-firewall
 install -m 755 "$ROOT_DIR/scripts/boot-verify.sh" /usr/local/sbin/ge360-bridge-boot-verify
 
@@ -84,7 +94,10 @@ systemctl enable --now "wg-quick@$WG_IF"
 systemctl enable --now ge360-bridge-firewall.service
 systemctl enable --now ge360-bridge.service
 systemctl enable --now ge360-bridge-dashboard.service
+systemctl enable --now ge360-bridge-expiry.timer
 systemctl enable ge360-bridge-boot-verify.service
+
+ge360-bridge device-sync >/dev/null
 
 say "Rilevamento endpoint"
 CURRENT_ENDPOINT="$(sed -n 's/^PUBLIC_ENDPOINT=//p' "$STATE_DIR/bridge.env" | head -n1)"
@@ -119,9 +132,11 @@ else
 fi
 
 say "Installazione completata"
+echo "Versione: GE360 Bridge v0.3 - Fase 1 Device Registry"
 echo "Dashboard locale: http://127.0.0.1:8789"
 echo "Dashboard via Bridge: http://10.88.0.1:8789"
 echo "Token dashboard: sudo cat $STATE_DIR/dashboard.token"
-echo "1) sudo ge360-bridge device-add telefono"
+echo "Roadmap: docs/ROADMAP.md"
+echo "1) sudo ge360-bridge device-add telefono --type android --owner Milan"
 echo "2) sudo ge360-bridge service-add rilievi --port 9888 --target-port 9888 --allow telefono"
 echo "3) ge360-bridge status"

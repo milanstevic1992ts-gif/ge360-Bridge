@@ -2,26 +2,43 @@
 
 Ponte privato e riutilizzabile per collegare i frontend GE360 ai backend Linux anche fuori dalla LAN, senza esporre direttamente le API applicative.
 
-## Obiettivo
+## Stato progetto
 
-Un solo Bridge sul server gestisce più app e più backend. La rete privata usa WireGuard `wg0` su `10.88.0.0/24`, UDP `51820`. La modalità predefinita è **Server Only**: il client può raggiungere `10.88.0.1`, non la LAN e non Internet attraverso il server.
+Versione corrente: **v0.3 — Fase 1: Device Registry**.
 
-## Dashboard amministratore
+La roadmap ufficiale è in `docs/ROADMAP.md`. Le fasi sono implementate in ordine; funzioni di fasi future non vengono anticipate.
 
-La v0.2 aggiunge una dashboard separata dal proxy:
+## Device Registry v0.3
+
+Ogni peer ha ora un'identità stabile separata dal nome:
+
+- `device_id`;
+- nome modificabile;
+- tipo dispositivo;
+- proprietario;
+- IP VPN;
+- data creazione;
+- scadenza opzionale;
+- note;
+- tag;
+- enabled/disabled.
+
+L'aggiornamento da v0.2 migra automaticamente `devices.json` preservando chiavi WireGuard, VPN IP e ACL.
+
+La scadenza non elimina il dispositivo: lo esclude dal runtime e un timer giornaliero sincronizza WireGuard.
+
+## Dashboard
 
 - server locale: `http://127.0.0.1:8789`
 - tramite WireGuard: `http://10.88.0.1:8789`
 - health: `http://127.0.0.1:8789/healthz`
 - stato JSON autenticato: `/api/status`
 
-Il token amministratore è generato una sola volta e preservato negli aggiornamenti:
+Token:
 
 ```bash
 sudo cat /etc/ge360-bridge/dashboard.token
 ```
-
-La dashboard mostra dispositivi online/offline, ultimo handshake WireGuard, endpoint del peer, traffico RX/TX, backend raggiungibili, porte Bridge e ACL. Permette anche di creare dispositivi con QR, revocarli, registrare/rimuovere backend e modificare i permessi.
 
 ## Installazione / aggiornamento Debian 13
 
@@ -31,7 +48,7 @@ cd ge360-Bridge
 sudo ./install.sh
 ```
 
-Se la repo è già installata:
+Repo già installata:
 
 ```bash
 cd ge360-Bridge
@@ -39,27 +56,46 @@ git pull
 sudo ./install.sh
 ```
 
-L'installer preserva chiavi, endpoint, peer, dispositivi, servizi e token dashboard esistenti.
+## Device CLI
 
-## Pairing di un telefono
-
-Da terminale:
+Creazione:
 
 ```bash
-sudo ge360-bridge device-add telefono-milan
+sudo ge360-bridge device-add telefono-milan \
+  --type android \
+  --owner Milan \
+  --tags personale,android
 ```
 
-Oppure dalla dashboard con **Aggiungi dispositivo**. Il pairing temporaneo della dashboard resta recuperabile per 30 minuti.
+Gestione:
+
+```bash
+ge360-bridge device-show telefono-milan
+sudo ge360-bridge device-rename telefono-milan telefono-principale
+sudo ge360-bridge device-update telefono-principale --expires 2026-12-31
+sudo ge360-bridge device-disable telefono-principale
+sudo ge360-bridge device-enable telefono-principale
+```
+
+`device-revoke` resta come alias compatibile di disable.
+
+## Pairing
+
+Il pairing resta **v1** in questa fase. Il pairing monouso con chiave privata generata sul client appartiene alla Fase 3 e non è stato anticipato.
+
+```bash
+sudo ge360-bridge device-add telefono-milan --type android
+```
 
 ## Collegare GE360 Rilievi
 
-Il backend deve preferibilmente ascoltare solo in locale:
+Backend preferibilmente su:
 
 ```text
 127.0.0.1:9888
 ```
 
-Poi:
+Registrazione:
 
 ```bash
 sudo ge360-bridge service-add rilievi \
@@ -69,43 +105,31 @@ sudo ge360-bridge service-add rilievi \
   --allow telefono-milan
 ```
 
-Il frontend autorizzato usa `http://10.88.0.1:9888`.
+Frontend: `http://10.88.0.1:9888`
 
-Ogni frontend può verificare il Bridge senza toccare il backend su `http://10.88.0.1:8788/v1/status`.
+Health Bridge: `http://10.88.0.1:8788/v1/status`
 
-## Diagnostica
+## Diagnostica base
 
 ```bash
 ge360-bridge status
+ge360-bridge list
 sudo wg show
-systemctl status wg-quick@wg0 ge360-bridge ge360-bridge-dashboard ge360-bridge-firewall
+systemctl status wg-quick@wg0 ge360-bridge ge360-bridge-dashboard ge360-bridge-firewall ge360-bridge-expiry.timer
 curl http://127.0.0.1:8789/healthz
-journalctl -u ge360-bridge -u ge360-bridge-dashboard -n 100 --no-pager
-```
-
-## Gestione permessi e revoca
-
-```bash
-sudo ge360-bridge service-grant rilievi telefono-milan
-sudo ge360-bridge service-revoke rilievi telefono-milan
-sudo ge360-bridge device-revoke telefono-milan
 ```
 
 ## Sicurezza
 
-- chiave WireGuard e PSK distinti per ogni device;
-- token applicativo dedicato per dispositivo;
-- token amministratore dashboard separato;
-- dashboard in ascolto solo su localhost e IP WireGuard;
-- backend non pubblicati sulla WAN;
-- ACL per dispositivo su ogni servizio;
+- chiave WireGuard e PSK distinti per device;
+- backend locali soltanto su loopback;
+- ACL per dispositivo;
+- device scaduti/disabilitati esclusi dall'accesso runtime;
 - traffico da `wg0` non inoltrato alla LAN;
-- pairing dashboard temporanei con permessi `0600` e TTL 30 minuti;
+- dashboard limitata a localhost/IP WireGuard;
 - file sensibili `0600`;
-- la porta WAN UDP `51820` non viene aperta forzando o sostituendo il firewall generale del server.
+- pairing QR temporaneo protetto.
 
-## Nota su CGNAT
+## CGNAT
 
-Senza IPv4 pubblica/port-forward oppure IPv6 globale raggiungibile, una connessione **diretta** da Internet al server non può funzionare. In quel caso il Bridge segnala la condizione invece di introdurre di nascosto relay o cloud esterni.
-
-Vedi `docs/ARCHITECTURE.md`, `docs/PAIRING_PROTOCOL.md`, `docs/SECURITY.md` e `docs/DASHBOARD.md`.
+Senza IPv4 pubblica/port-forward oppure IPv6 globale raggiungibile, una connessione diretta da Internet non può funzionare. NAT discovery e traversal appartengono alle Fasi 18-19 e non fanno parte della Fase 1.

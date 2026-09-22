@@ -1,0 +1,8 @@
+[Unit]
+Description=GE360 Bridge device expiry synchronization
+After=wg-quick@wg0.service ge360-bridge.service
+Requires=wg-quick@wg0.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ge360-bridge device-sync

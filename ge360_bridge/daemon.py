@@ -5,7 +5,7 @@ import json
 import signal
 from typing import Any
 
-from .core import allowed_ips_for_service, list_devices, list_services
+from .core import allowed_ips_for_service, device_is_active, list_devices, list_services
 
 BIND_HOST = "10.88.0.1"
 HEALTH_PORT = 8788
@@ -45,8 +45,8 @@ async def handle_client(client_reader: asyncio.StreamReader, client_writer: asyn
 async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     peer = writer.get_extra_info("peername")
     peer_ip = peer[0] if peer else ""
-    enabled_devices = {d["vpn_ip"]: d["name"] for d in list_devices() if d.get("enabled", True)}
-    if peer_ip not in enabled_devices:
+    active_devices = {d["vpn_ip"]: d for d in list_devices() if device_is_active(d)}
+    if peer_ip not in active_devices:
         writer.close()
         await writer.wait_closed()
         return
@@ -64,7 +64,8 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         body = json.dumps({"ok": False, "error": "not_found"}).encode()
         status = "404 Not Found"
     else:
-        device_name = enabled_devices[peer_ip]
+        device = active_devices[peer_ip]
+        device_name = device["name"]
         services = []
         for s in list_services():
             if s.get("enabled", True) and device_name in s.get("allowed_devices", []):
@@ -74,6 +75,7 @@ async def handle_health(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             "bridge": "GE360 Universal Bridge",
             "schema": "ge360-bridge-status/v1",
             "device": device_name,
+            "device_id": device["device_id"],
             "vpn_ip": peer_ip,
             "services": services,
         }).encode()

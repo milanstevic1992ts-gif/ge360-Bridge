@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.19 — Fase 17: Update Engine in verifica CI**.
+Versione corrente: **v0.19 — Fase 17 completata: Update Engine**. La Fase 18 — NAT Discovery è la prossima e non è stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

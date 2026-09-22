@@ -466,7 +466,7 @@ Chiusura verificata:
 - workflow Android non modificato e ultimo run su main verde;
 - nessun download/update, rollback software, NAT discovery, relay o multi-server introdotto.
 
-## Fase 17 — Update Engine — IN CORSO, IMPLEMENTAZIONE PRONTA PER CI
+## Fase 17 — Update Engine — COMPLETATA
 
 Obiettivo: installare aggiornamenti software GE360 in modo controllato con backup pre-update, verifica forte, health check e rollback automatico.
 
@@ -510,7 +510,22 @@ Fuori scope Fase 17:
 
 Criterio di chiusura: CI Python verde, pacchetto reale costruito e preflight verde, test download/verifica/install/health/rollback verdi, backup pre-update verificato, rollback automatico verificato e nessuna funzione Fase 18 anticipata.
 
-## Fase 18 — NAT Discovery
+Chiusura verificata:
+- commit funzionale bf51cd6548389bf00caf1bdd513050409dc0d06a;
+- fix builder diretto f1a426b43aad958a895d1fdb1f21125efd14b872;
+- CI Python completata con successo sul fix, inclusi compileall, 127 test e bash -n;
+- builder reale della repository completato con successo;
+- preflight del pacchetto reale completato con successo;
+- test download HTTPS + SHA-256 verde;
+- test pacchetto manomesso/path inatteso/versione non più recente verdi;
+- test installazione riuscita con backup configurazione + snapshot software verde;
+- test health post-update fallito → rollback software + configurazione verde;
+- test restart fallito → rollback verde;
+- retention snapshot rollback limitata a 3 e verificata;
+- workflow Android non modificato e ultimo run su main verde;
+- nessun auto-update, NAT discovery/traversal, relay o multi-server introdotto.
+
+## Fase 18 — NAT Discovery — PROSSIMA, NON AVVIATA
 
 STUN, endpoint discovery, rilevamento CGNAT e tipo NAT.
 

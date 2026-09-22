@@ -1,6 +1,6 @@
 # GE360 Universal Bridge
 
-Versione corrente: **v0.6 — Fase 4: Resource Registry**.
+Versione corrente: **v0.6 — Fase 4 completata: Resource Registry**. La Fase 5 è la prossima e non è ancora stata avviata.
 
 La fonte di verità resta `docs/ROADMAP.md`.
 

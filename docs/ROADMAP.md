@@ -25,7 +25,7 @@ Gruppi persistenti, membership tramite device_id, servizi concessi ai gruppi e o
 
 Token monouso, TTL, private key generata sul client, HTTPS bootstrap con certificate pinning e protezione replay.
 
-## Fase 4 — Resource Registry — CORRENTE
+## Fase 4 — Resource Registry — COMPLETATA
 
 Obiettivo: sostituire il modello generico Service con un registro Resource autoritativo senza rompere backend, ACL, gruppi o pairing esistenti.
 
@@ -60,7 +60,7 @@ Fuori scope Fase 4:
 
 Criterio di chiusura: test e CI verdi, migrazione v0.5 senza perdita di porta/target/ACL/gruppi e compatibilità service-* verificata.
 
-## Fase 5 — Health Engine
+## Fase 5 — Health Engine — PROSSIMA, NON AVVIATA
 
 Controlli TCP/HTTP, status code, latenza, risposta JSON, TLS e stati ONLINE/DEGRADED/OFFLINE/TIMEOUT/UNAUTHORIZED/BAD_RESPONSE.
 
